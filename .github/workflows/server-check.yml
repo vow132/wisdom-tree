@@ -1,0 +1,29 @@
+name: Server preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install SSH client library
+        run: python -m pip install --disable-pip-version-check paramiko==4.0.0
+      - name: Inspect server without changing services
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DEPLOY_USER: ${{ vars.DEPLOY_BOOTSTRAP_USER || 'root' }}
+          DEPLOY_BOOTSTRAP_PASSWORD: ${{ secrets.DEPLOY_BOOTSTRAP_PASSWORD }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: python scripts/server-check.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: success()
+        with:
+          name: server-preflight
+          path: server-preflight.json
+          retention-days: 1
