@@ -1,0 +1,2 @@
+# Publish the official PostgreSQL runtime through the application's private registry.
+FROM postgres:17-alpine

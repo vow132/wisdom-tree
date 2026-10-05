@@ -5,6 +5,8 @@ umask 077
 mkdir -p .local
 {
   printf 'API_IMAGE=%s\nWEB_IMAGE=%s\n' "$API_IMAGE" "$WEB_IMAGE"
+  if [[ -n "${DB_IMAGE:-}" ]]; then printf 'DB_IMAGE=%s\n' "$DB_IMAGE"; fi
+  if [[ -n "${CADDY_IMAGE:-}" ]]; then printf 'CADDY_IMAGE=%s\n' "$CADDY_IMAGE"; fi
   printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 24)"
   printf 'API_KEY_ENCRYPTION_KEY=%s\n' "$(openssl rand -hex 32)"
   printf 'ADMIN_USERNAME=ci_admin\nADMIN_PASSWORD=%s\n' "$(openssl rand -hex 16)"

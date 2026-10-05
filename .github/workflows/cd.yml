@@ -33,6 +33,8 @@ jobs:
     outputs:
       api: ${{ steps.release.outputs.api }}
       web: ${{ steps.release.outputs.web }}
+      db: ${{ steps.release.outputs.db }}
+      caddy: ${{ steps.release.outputs.caddy }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,6 +48,8 @@ jobs:
           repo="${GITHUB_REPOSITORY,,}"
           echo "api=ghcr.io/${repo}/api" >> "$GITHUB_OUTPUT"
           echo "web=ghcr.io/${repo}/web" >> "$GITHUB_OUTPUT"
+          echo "db=ghcr.io/${repo}/db" >> "$GITHUB_OUTPUT"
+          echo "caddy=ghcr.io/${repo}/caddy" >> "$GITHUB_OUTPUT"
       - name: Login to private registry
         env:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,6 +83,30 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=wisdom-tree-web
           cache-to: type=gha,mode=max,scope=wisdom-tree-web
+      - name: Publish official PostgreSQL runtime
+        id: db
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile.db
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.db }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Publish official Caddy runtime
+        id: caddy
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile.caddy
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.caddy }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
       - name: Exact release images
         id: release
         env:
@@ -86,13 +114,21 @@ jobs:
           WEB_BASE: ${{ steps.names.outputs.web }}
           API_DIGEST: ${{ steps.api.outputs.digest }}
           WEB_DIGEST: ${{ steps.web.outputs.digest }}
+          DB_BASE: ${{ steps.names.outputs.db }}
+          CADDY_BASE: ${{ steps.names.outputs.caddy }}
+          DB_DIGEST: ${{ steps.db.outputs.digest }}
+          CADDY_DIGEST: ${{ steps.caddy.outputs.digest }}
         run: |
           echo "api=${API_BASE}@${API_DIGEST}" >> "$GITHUB_OUTPUT"
           echo "web=${WEB_BASE}@${WEB_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "db=${DB_BASE}@${DB_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "caddy=${CADDY_BASE}@${CADDY_DIGEST}" >> "$GITHUB_OUTPUT"
       - name: Run full Docker stack and proxy smoke checks
         env:
           API_IMAGE: ${{ steps.release.outputs.api }}
           WEB_IMAGE: ${{ steps.release.outputs.web }}
+          DB_IMAGE: ${{ steps.release.outputs.db }}
+          CADDY_IMAGE: ${{ steps.release.outputs.caddy }}
         run: bash scripts/ci-docker.sh
       - name: Cleanup disposable test containers
         if: always()
@@ -138,8 +174,10 @@ jobs:
         env:
           API_IMAGE: ${{ needs.images.outputs.api }}
           WEB_IMAGE: ${{ needs.images.outputs.web }}
+          DB_IMAGE: ${{ needs.images.outputs.db }}
+          CADDY_IMAGE: ${{ needs.images.outputs.caddy }}
         run: |
-          printf 'RELEASE_ID=%s\nAPI_IMAGE=%s\nWEB_IMAGE=%s\n' "$GITHUB_SHA" "$API_IMAGE" "$WEB_IMAGE" > .release.env
+          printf 'RELEASE_ID=%s\nAPI_IMAGE=%s\nWEB_IMAGE=%s\nDB_IMAGE=%s\nCADDY_IMAGE=%s\n' "$GITHUB_SHA" "$API_IMAGE" "$WEB_IMAGE" "$DB_IMAGE" "$CADDY_IMAGE" > .release.env
           tar -czf "$RUNNER_TEMP/wisdom-release.tar.gz" .release.env compose.deploy.yml Caddyfile scripts/deploy.sh scripts/rollback.sh scripts/deploy-from-ci.sh
           opts=(-i "$RUNNER_TEMP/wisdom-ssh/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/wisdom-ssh/known_hosts" -o ConnectTimeout=15)
           incoming="$DEPLOY_ROOT/incoming/$GITHUB_SHA"

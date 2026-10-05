@@ -19,14 +19,18 @@ validate_release() {
   # Only non-secret immutable release metadata is accepted; never source it.
   awk '
     /^RELEASE_ID=[a-f0-9]+$/ { if (length(substr($0,12)) != 40 || seen_id++) exit 1; next }
-    /^(API_IMAGE|WEB_IMAGE)=ghcr\.io\/[a-z0-9][a-z0-9\/_.-]*(@sha256:[a-f0-9]+|:[a-f0-9]+)$/ {
+    /^(API_IMAGE|WEB_IMAGE|DB_IMAGE|CADDY_IMAGE)=ghcr\.io\/[a-z0-9][a-z0-9\/_.-]*(@sha256:[a-f0-9]+|:[a-f0-9]+)$/ {
       split($0, pair, "="); if (seen[pair[1]]++) exit 1;
       if (pair[2] ~ /@sha256:/) { split(pair[2], hash, "@sha256:"); if (length(hash[2]) != 64) exit 1 }
       else { split(pair[2], hash, ":"); if (length(hash[2]) != 40) exit 1 }
       next
     }
     { exit 1 }
-    END { if (NR != 3 || seen_id != 1 || seen["API_IMAGE"] != 1 || seen["WEB_IMAGE"] != 1) exit 1 }
+    END {
+      if ((NR != 3 && NR != 5) || seen_id != 1 || seen["API_IMAGE"] != 1 || seen["WEB_IMAGE"] != 1) exit 1;
+      if (NR == 3 && (seen["DB_IMAGE"] || seen["CADDY_IMAGE"])) exit 1;
+      if (NR == 5 && (seen["DB_IMAGE"] != 1 || seen["CADDY_IMAGE"] != 1)) exit 1;
+    }
   ' "$candidate"
 }
 validate_release "$task_release_file" || { printf 'Invalid release metadata; use a commit SHA and immutable GHCR images.\n' >&2; exit 2; }
@@ -71,7 +75,7 @@ compose_for() {
   local release=$1
   shift
   # Shell variables must not override the reviewed release or persistent secrets.
-  env -u API_IMAGE -u WEB_IMAGE -u RELEASE_ID -u POSTGRES_PASSWORD \
+  env -u API_IMAGE -u WEB_IMAGE -u DB_IMAGE -u CADDY_IMAGE -u RELEASE_ID -u POSTGRES_PASSWORD \
     -u API_KEY_ENCRYPTION_KEY -u PUBLIC_ORIGIN -u SITE_ADDRESS -u ACME_EMAIL \
     -u GITHUB_CLIENT_ID -u GITHUB_CLIENT_SECRET -u LINUXDO_CLIENT_ID -u LINUXDO_CLIENT_SECRET \
     -u ADMIN_USERNAME -u ADMIN_PASSWORD -u LOG_LEVEL -u DB_POOL_MAX \
@@ -110,7 +114,7 @@ trap on_error ERR
 
 # Invalid interpolation/credentials fail before stopping the current API.
 compose config --quiet
-compose pull api web
+compose pull api web db caddy
 compose up -d --wait --wait-timeout 120 db
 task_transition=1
 compose stop api

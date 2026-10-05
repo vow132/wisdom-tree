@@ -38,7 +38,7 @@ DB_POOL_MAX=5
 
 ## 发布包与镜像
 
-镜像必须使用提交 SHA 标签或镜像 digest。发布包结构如下，`.release.env` 不含凭证：
+新 CD 发布的 API、前端、数据库和 Caddy 四个镜像均从 GHCR 拉取，并使用不可变的镜像 digest。数据库和 Caddy 镜像分别由 `Dockerfile.db`、`Dockerfile.caddy` 基于官方 PostgreSQL 17、Caddy 2 镜像构建并发布到 GHCR；服务器拉取这些镜像只需访问 GHCR，无需直接拉取 Docker Hub。镜像拉取仍验证 HTTPS 证书，不配置 insecure registry 或跳过 TLS 校验。发布包结构如下，`.release.env` 不含凭证：
 
 ```text
 incoming/<40-character-commit-sha>/
@@ -54,7 +54,11 @@ incoming/<40-character-commit-sha>/
 RELEASE_ID=<40-character-commit-sha>
 API_IMAGE=ghcr.io/<owner>/<api-image>@sha256:<64-character-image-digest>
 WEB_IMAGE=ghcr.io/<owner>/<web-image>@sha256:<64-character-image-digest>
+DB_IMAGE=ghcr.io/<owner>/<db-image>@sha256:<64-character-image-digest>
+CADDY_IMAGE=ghcr.io/<owner>/<caddy-image>@sha256:<64-character-image-digest>
 ```
+
+部署脚本兼容只有 `RELEASE_ID`、`API_IMAGE`、`WEB_IMAGE` 的旧三行发布配置；此时 `DB_IMAGE` 与 `CADDY_IMAGE` 同时省略，使用官方 Docker Hub 镜像默认值。新增这两项时必须成对提供。新 CD 始终生成以上五行配置，固定全部四个 GHCR 镜像的 digest，避免升级时重新依赖服务器到 Docker Hub 的连接。
 
 私有 GHCR 镜像需要服务器的拉取凭证，使用具有 `read:packages` 权限的专用凭证执行 `docker login ghcr.io --username <owner> --password-stdin`，输入从标准输入传递。Actions 上传发布包与执行部署使用专用 SSH 部署密钥；SSH 主机公钥必须预先通过可信渠道确认后固定。不要通过每次无条件 `ssh-keyscan` 或 `StrictHostKeyChecking=no` 接受新主机。
 
@@ -65,7 +69,7 @@ bash /opt/wisdom-tree/incoming/<sha>/scripts/deploy.sh \
   /opt/wisdom-tree/incoming/<sha>/.release.env
 ```
 
-部署加独占锁，先校验配置并拉取 API/前端镜像，再确认数据库健康。暂停 API 后备份数据库，完整解码验证压缩归档，再原子保存；同时另存一份权限 `600` 的 `.env`，用于恢复密钥。新镜像执行 `node dist/migrate.js`。迁移成功后，仅在数据库确认没有有效管理员时执行 `node dist/admin-cli.js` 创建初始管理员，不重置已有账户。随后启动 API、前端、Caddy，检查容器健康、公开 HTTPS 的 `/health`、首页 HTML 以及 HTTP 跳转 HTTPS。
+部署加独占锁，先校验配置并拉取 API、前端、数据库和 Caddy 四个镜像。全部拉取成功后才启动数据库并确认其健康；拉取失败会直接结束，不停止当前 API。暂停 API 后备份数据库，完整解码验证压缩归档，再原子保存；同时另存一份权限 `600` 的 `.env`，用于恢复密钥。新镜像执行 `node dist/migrate.js`。迁移成功后，仅在数据库确认没有有效管理员时执行 `node dist/admin-cli.js` 创建初始管理员，不重置已有账户。随后启动 API、前端、Caddy，检查容器健康、公开 HTTPS 的 `/health`、首页 HTML 以及 HTTP 跳转 HTTPS。
 
 首次 Caddy 申请证书需要域名解析正确且能够接收公网验证。部署完成才原子更新服务器 `.release.env`；此前成功版本保存为 `.previous-release.env`。每份发布包保留在 `releases/<sha>/`，重复部署同一 SHA 必须与原始发布包一致。
 

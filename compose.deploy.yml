@@ -1,7 +1,7 @@
 name: wisdom-tree
 services:
   db:
-    image: postgres:17-alpine
+    image: ${DB_IMAGE:-postgres:17-alpine}
     restart: unless-stopped
     command: ["postgres", "-c", "max_connections=30", "-c", "shared_buffers=128MB"]
     mem_limit: 512m
@@ -66,7 +66,7 @@ services:
     logging: *logging
     networks: [internal]
   caddy:
-    image: caddy:2-alpine
+    image: ${CADDY_IMAGE:-caddy:2-alpine}
     restart: unless-stopped
     mem_limit: 192m
     cpus: 0.25

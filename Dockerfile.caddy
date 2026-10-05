@@ -1,0 +1,2 @@
+# Publish the official Caddy runtime through the application's private registry.
+FROM caddy:2-alpine
