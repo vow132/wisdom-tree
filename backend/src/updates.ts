@@ -167,7 +167,7 @@ class RepositoryUpdater {
     const accepted = await transaction(this.services.pool, async db => {
       await this.adminGuard(db, actor);
       const settings = (await db.query<SettingsRow>('SELECT enabled,token_ciphertext FROM system_update_settings WHERE id=true FOR UPDATE')).rows[0];
-      if (!settings.enabled || !settings.token_ciphertext) fail(400, 'update_not_configured', '请先在管理 → 系统规则 → 网站更新配置专用 Token 并开启更新。');
+      if (!settings.enabled || !settings.token_ciphertext) fail(400, 'update_not_configured', '请先在管理 → 网站设置 → 网站更新配置专用 Token 并开启更新。');
       const pending = (await db.query<Job>(`SELECT * FROM system_update_jobs WHERE status IN ('dispatching','submitted') LIMIT 1`)).rows[0];
       if (pending) {
         if (pending.target_sha !== targetSha) fail(409, 'update_in_progress', '已有更新正在执行，请先查看更新进度。');

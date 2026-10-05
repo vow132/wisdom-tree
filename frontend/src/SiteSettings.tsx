@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import { Button, Field, PanelTitle, QueryStatus, useAction } from './ui';
 import UpdaterSettings from './UpdaterSettings';
-import { adminSiteSettingsQueryKey, saveSiteSettingsCache, type SiteSettings } from './site-settings';
+import { adminSiteSettingsQueryKey, latestSiteSettings, saveSiteSettingsCache, type SiteSettings } from './site-settings';
 
 type TextSettings = Pick<SiteSettings, 'siteName' | 'browserTitle' | 'gardenSubtitle' | 'footerText'>;
 type AssetSlot = 'logo' | 'favicon' | 'garden-background';
@@ -40,7 +40,8 @@ export function readSiteImage(file: File): Promise<string> {
 }
 
 export default function SiteSettingsPanel() {
-  const query = useQuery({ queryKey: adminSiteSettingsQueryKey, queryFn: ({ signal }) => api<SiteSettings>('/api/admin/site-settings', { signal }) });
+  const client = useQueryClient();
+  const query = useQuery({ queryKey: adminSiteSettingsQueryKey, queryFn: async ({ signal }) => latestSiteSettings(client, await api<SiteSettings>('/api/admin/site-settings', { signal })) });
   return <div className="site-settings-workspace">
     <section className="panel site-settings-panel">
       <PanelTitle title="网站设置" description="修改网站名称、页面文案与图片，保存后在本站生效。" />

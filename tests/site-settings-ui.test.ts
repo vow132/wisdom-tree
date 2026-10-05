@@ -31,12 +31,20 @@ test('website settings save text and uploaded images independently, update the p
   const notices: Notice[] = [];
   let failSave = false;
   let tick = 0;
+  let holdNextAdminRead = false;
+  let releaseAdminRead: (() => void) | undefined;
   install('fetch', async (path: string, options?: RequestInit) => {
     const method = options?.method || 'GET';
     const body = options?.body ? JSON.parse(String(options.body)) : undefined;
     requests.push({ path, method, body });
     if (path === '/api/admin/update/settings') return new Response(JSON.stringify({ enabled: false, tokenConfigured: false, repositoryUrl: 'https://github.com/vow132/wisdom-tree', branch: 'codex/wisdom-tree' }), { headers: { 'content-type': 'application/json' } });
     if (path === '/api/site-settings' || path === '/api/admin/site-settings') {
+      if (path === '/api/admin/site-settings' && method === 'GET' && holdNextAdminRead) {
+        holdNextAdminRead = false;
+        const snapshot = { ...settings };
+        await new Promise<void>(resolve => { releaseAdminRead = resolve; });
+        return new Response(JSON.stringify(snapshot), { headers: { 'content-type': 'application/json' } });
+      }
       if (method === 'PATCH') {
         if (failSave) return new Response(JSON.stringify({ error: { code: 'INVALID_INPUT', message: '网站名称不能为空，请填写后重试。' } }), { status: 400, headers: { 'content-type': 'application/json' } });
         settings = { ...settings, ...body, updatedAt: `2026-10-05T00:00:0${++tick}.000Z` };
@@ -154,6 +162,27 @@ test('website settings save text and uploaded images independently, update the p
       assert.equal(input('siteName').value, '暂存的名称');
       assert.equal(window.document.querySelector('input[name="logoUrl"]'), null, 'arbitrary image URLs have no editable field');
     });
+    await t.test('a delayed admin read cannot roll back text or an image saved while that read was pending', async () => {
+      holdNextAdminRead = true;
+      let refresh: Promise<void> | undefined;
+      await act(async () => { refresh = client.refetchQueries({ queryKey: adminSiteSettingsQueryKey, exact: true }); });
+      await waitForUI(() => Boolean(releaseAdminRead), 'The deliberately pending administrator read did not start.');
+      const beforeText = settings.updatedAt;
+      await changeText('siteName', '异步查询之后的新名称');
+      await submit();
+      assert.ok(settings.updatedAt > beforeText);
+      await chooseFile(new window.File([Buffer.from('89504e470d0a1a0a', 'hex')], 'new-logo.png', { type: 'image/png' }));
+      await act(async () => { assetButton('上传图片').click(); });
+      await waitForUI(() => client.isMutating() === 0 && Boolean(settings.logoUrl)
+        && assetSection().querySelector('img')?.getAttribute('src') === settings.logoUrl, 'The image saved during the pending administrator read did not appear.');
+      const expected = { ...settings };
+      await act(async () => { releaseAdminRead!(); await refresh; });
+      assert.deepEqual(client.getQueryData<SiteSettings>(adminSiteSettingsQueryKey), expected, 'The late GET must retain the newly saved text and image.');
+      assert.deepEqual(client.getQueryData<SiteSettings>(siteSettingsQueryKey), expected);
+      assert.equal(input('siteName').value, expected.siteName);
+      assert.equal(assetSection().querySelector('img')?.getAttribute('src'), expected.logoUrl);
+      assert.equal(requests.filter(request => request.path === '/api/admin/site-settings' && request.method === 'GET').length, 2, 'The race protection adds no request beyond the deliberate refresh.');
+    });
     await t.test('a delayed older mutation cannot overwrite newer settings cached by another save', () => {
       const newest = { ...settings, siteName: '较新的名称', updatedAt: '2026-10-05T00:02:00.000Z' };
       saveSiteSettingsCache(client, newest);
@@ -163,11 +192,13 @@ test('website settings save text and uploaded images independently, update the p
       client.setQueryData(adminSiteSettingsQueryKey, { ...settings, updatedAt: '2026-10-05T00:01:00.000Z' });
       saveSiteSettingsCache(client, { ...settings, updatedAt: '2026-10-05T00:01:30.000Z' });
       assert.equal(client.getQueryData<SiteSettings>(siteSettingsQueryKey)?.siteName, '较新的名称', 'a newer public cache also rejects older responses');
+      assert.equal(client.getQueryData<SiteSettings>(adminSiteSettingsQueryKey)?.siteName, '较新的名称', 'both caches converge to the newest known settings');
     });
-    assert.equal(requests.filter(request => request.method === 'GET').length, 3, 'successful saves update caches without a second GET');
+    assert.equal(requests.filter(request => request.method === 'GET').length, 4, 'successful saves add no GET beyond startup and the deliberate administrator refresh');
     assert.equal(requests.filter(request => request.path.includes('/api/admin/update')).length, 1, 'website saves leave the update token configuration untouched');
     assert.equal(intervals, 0);
   } finally {
+    releaseAdminRead?.();
     await act(async () => { root.unmount(); }); client.clear(); dom.window.close();
     if (oldCreateObjectURL) Object.defineProperty(URL, 'createObjectURL', oldCreateObjectURL); else Reflect.deleteProperty(URL, 'createObjectURL');
     if (oldRevokeObjectURL) Object.defineProperty(URL, 'revokeObjectURL', oldRevokeObjectURL); else Reflect.deleteProperty(URL, 'revokeObjectURL');

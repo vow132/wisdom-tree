@@ -1,5 +1,7 @@
 {$SITE_ADDRESS} {
   header {
+    # Apply after upstream headers so security values are not duplicated.
+    defer
     X-Content-Type-Options nosniff
     Referrer-Policy same-origin
     X-Frame-Options DENY
