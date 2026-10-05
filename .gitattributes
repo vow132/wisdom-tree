@@ -1,4 +1,6 @@
 * text=auto
+*.sql text eol=lf
+backend/data/*.txt text eol=lf
 *.sh text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
