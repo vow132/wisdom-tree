@@ -10,8 +10,9 @@ host = os.environ['DEPLOY_HOST']
 port = int(os.environ.get('DEPLOY_PORT', '22'))
 user = os.environ.get('DEPLOY_USER', 'root')
 password = os.environ.get('DEPLOY_BOOTSTRAP_PASSWORD', '')
-if not password:
-    sys.exit('Missing DEPLOY_BOOTSTRAP_PASSWORD repository secret.')
+private_key = os.environ.get('DEPLOY_SSH_PRIVATE_KEY', '')
+if not password and not private_key:
+    sys.exit('Missing deployment SSH key or temporary bootstrap password.')
 client = paramiko.SSHClient()
 pinned = os.environ.get('DEPLOY_KNOWN_HOSTS', '').strip()
 if pinned:
@@ -22,10 +23,13 @@ if pinned:
                 client.get_host_keys().add(name, entry.key.get_name(), entry.key)
     client.set_missing_host_key_policy(paramiko.RejectPolicy())
 else:
+    if private_key and not password:
+        sys.exit('Key-based preflight requires the pinned DEPLOY_KNOWN_HOSTS secret.')
     # First-use discovery only; continuous deployment requires the returned pinned key.
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 try:
-    client.connect(host, port=port, username=user, password=password, timeout=15,
+    pkey = paramiko.Ed25519Key.from_private_key(io.StringIO(private_key)) if private_key else None
+    client.connect(host, port=port, username=user, password=password or None, pkey=pkey, timeout=15,
                    banner_timeout=20, auth_timeout=15, allow_agent=False, look_for_keys=False)
     key = client.get_transport().get_remote_server_key()
     known_name = host if port == 22 else f'[{host}]:{port}'

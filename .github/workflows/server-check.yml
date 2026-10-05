@@ -19,6 +19,7 @@ jobs:
           DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
           DEPLOY_USER: ${{ vars.DEPLOY_BOOTSTRAP_USER || 'root' }}
           DEPLOY_BOOTSTRAP_PASSWORD: ${{ secrets.DEPLOY_BOOTSTRAP_PASSWORD }}
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: python scripts/server-check.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

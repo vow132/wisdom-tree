@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY frontend/package.json frontend/package.json
 COPY backend/package.json backend/package.json
-RUN npm ci --workspace frontend --include-workspace-root=false --no-audit --no-fund
+RUN npm ci --workspace frontend --include-workspace-root=true --no-audit --no-fund
 COPY frontend frontend
 RUN npm run build --workspace frontend
 FROM nginx:alpine

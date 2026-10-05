@@ -152,7 +152,7 @@ jobs:
         run: |
           opts=(-i "$RUNNER_TEMP/wisdom-ssh/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/wisdom-ssh/known_hosts" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=8)
           incoming="$DEPLOY_ROOT/incoming/$GITHUB_SHA"
-          printf '%s\n%s\n' "$GITHUB_ACTOR" "$REGISTRY_TOKEN" | ssh "${opts[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash '$incoming/scripts/deploy-from-ci.sh' '$incoming/.release.env'"
+          printf '%s\n%s\n' "$GITHUB_ACTOR" "$REGISTRY_TOKEN" | ssh "${opts[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "WISDOM_TREE_DIR='$DEPLOY_ROOT' bash '$incoming/scripts/deploy-from-ci.sh' '$incoming/.release.env'"
       - name: Verify public HTTPS
         env:
           PRODUCTION_URL: ${{ vars.PUBLIC_ORIGIN }}
