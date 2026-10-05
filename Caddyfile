@@ -1,6 +1,3 @@
-{
-  email {$ACME_EMAIL}
-}
 {$SITE_ADDRESS} {
   header {
     X-Content-Type-Options nosniff

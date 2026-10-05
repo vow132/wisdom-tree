@@ -50,7 +50,9 @@ docker compose up -d --build
 docker compose exec -T api node dist/admin-cli.js
 ```
 
-必须配置 `SITE_ADDRESS`、`PUBLIC_ORIGIN`、`ACME_EMAIL`、`POSTGRES_PASSWORD`、`ADMIN_PASSWORD` 和 `API_KEY_ENCRYPTION_KEY`。加密主密钥需要 64 位随机十六进制字符串，可用 `openssl rand -hex 32` 生成并填入 `.env`；升级旧版本时也要新增此项。数据库密码请使用字母、数字、短横线或下划线组成的长随机字符串；连接 URL 中的其他字符需进行 URL 编码。`PUBLIC_ORIGIN` 例如 `https://tree.example.com`，与浏览器访问域名一致。
+必须配置 `SITE_ADDRESS`、`PUBLIC_ORIGIN`、`POSTGRES_PASSWORD`、`ADMIN_PASSWORD` 和 `API_KEY_ENCRYPTION_KEY`。Caddy 自动申请 HTTPS 证书，无须提供邮箱。加密主密钥需要 64 位随机十六进制字符串，可用 `openssl rand -hex 32` 生成并填入 `.env`；升级旧版本时也要新增此项。数据库密码请使用字母、数字、短横线或下划线组成的长随机字符串；连接 URL 中的其他字符需进行 URL 编码。`PUBLIC_ORIGIN` 例如 `https://tree.example.com`，与浏览器访问域名一致。
+
+GitHub 自动发布使用 [CI/CD 部署说明](docs/deployment.md) 中的 `compose.deploy.yml`，服务器运行已构建的镜像，避免在 2GB 机器上编译。默认分支 `codex/wisdom-tree` 的每次推送先执行 [CI](docs/ci.md)，通过后发布私有 GHCR 镜像、启动一次性完整 Docker 栈验证 Caddy 与普通/流式接口，再通过固定主机公钥的 SSH 连接部署。生产目录固定为 `/opt/wisdom-tree`，目标站点为 `https://ai.91i.asia`。源码不包含服务器密码、SSH 私钥或生产 `.env`。
 
 启动时会执行数据库迁移。数据库、HTTPS 证书使用持久卷；PostgreSQL 与后端端口不暴露到公网。初次初始化管理员后，可从 `.env` 清除 `ADMIN_PASSWORD` 并重建 API 服务。
 

@@ -1,0 +1,166 @@
+name: CI and deploy
+on:
+  push:
+    branches: [codex/wisdom-tree]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy after all checks (requires DEPLOY_ENABLED=true)
+        type: boolean
+        default: true
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: wisdom-tree-production
+  cancel-in-progress: false
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  images:
+    name: Publish and verify immutable images
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api: ${{ steps.release.outputs.api }}
+      web: ${{ steps.release.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Image names
+        id: names
+        run: |
+          repo="${GITHUB_REPOSITORY,,}"
+          echo "api=ghcr.io/${repo}/api" >> "$GITHUB_OUTPUT"
+          echo "web=ghcr.io/${repo}/web" >> "$GITHUB_OUTPUT"
+      - name: Login to private registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build API
+        id: api
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.api }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=wisdom-tree-api
+          cache-to: type=gha,mode=max,scope=wisdom-tree-api
+      - name: Build web
+        id: web
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile.frontend
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.names.outputs.web }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=wisdom-tree-web
+          cache-to: type=gha,mode=max,scope=wisdom-tree-web
+      - name: Exact release images
+        id: release
+        env:
+          API_BASE: ${{ steps.names.outputs.api }}
+          WEB_BASE: ${{ steps.names.outputs.web }}
+          API_DIGEST: ${{ steps.api.outputs.digest }}
+          WEB_DIGEST: ${{ steps.web.outputs.digest }}
+        run: |
+          echo "api=${API_BASE}@${API_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "web=${WEB_BASE}@${WEB_DIGEST}" >> "$GITHUB_OUTPUT"
+      - name: Run full Docker stack and proxy smoke checks
+        env:
+          API_IMAGE: ${{ steps.release.outputs.api }}
+          WEB_IMAGE: ${{ steps.release.outputs.web }}
+        run: bash scripts/ci-docker.sh
+      - name: Cleanup disposable test containers
+        if: always()
+        run: |
+          if test -f .local/docker-ci.env; then
+            docker compose --project-name wisdom-ci --env-file .local/docker-ci.env -f compose.deploy.yml down --volumes
+          fi
+          docker logout ghcr.io >/dev/null 2>&1 || true
+
+  deploy:
+    name: Deploy ai.91i.asia
+    needs: images
+    if: vars.DEPLOY_ENABLED == 'true' && (github.event_name != 'workflow_dispatch' || inputs.deploy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT || '/opt/wisdom-tree' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure pinned SSH connection
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]] && ((DEPLOY_PORT > 0 && DEPLOY_PORT <= 65535))
+          [[ "$DEPLOY_USER" =~ ^[a-zA-Z0-9_-]+$ ]]
+          [[ "$DEPLOY_ROOT" =~ ^/opt/[a-zA-Z0-9_-]+$ ]]
+          test -n "$SSH_KEY" && test -n "$KNOWN_HOSTS"
+          umask 077
+          mkdir -p "$RUNNER_TEMP/wisdom-ssh"
+          printf '%s\n' "$SSH_KEY" > "$RUNNER_TEMP/wisdom-ssh/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/wisdom-ssh/known_hosts"
+      - name: Upload release bundle
+        env:
+          API_IMAGE: ${{ needs.images.outputs.api }}
+          WEB_IMAGE: ${{ needs.images.outputs.web }}
+        run: |
+          printf 'RELEASE_ID=%s\nAPI_IMAGE=%s\nWEB_IMAGE=%s\n' "$GITHUB_SHA" "$API_IMAGE" "$WEB_IMAGE" > .release.env
+          tar -czf "$RUNNER_TEMP/wisdom-release.tar.gz" .release.env compose.deploy.yml Caddyfile scripts/deploy.sh scripts/rollback.sh scripts/deploy-from-ci.sh
+          opts=(-i "$RUNNER_TEMP/wisdom-ssh/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/wisdom-ssh/known_hosts" -o ConnectTimeout=15)
+          incoming="$DEPLOY_ROOT/incoming/$GITHUB_SHA"
+          ssh "${opts[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p -- '$incoming'"
+          scp "${opts[@]}" -P "$DEPLOY_PORT" "$RUNNER_TEMP/wisdom-release.tar.gz" "$DEPLOY_USER@$DEPLOY_HOST:$incoming/release.tar.gz"
+          ssh "${opts[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "tar -xzf '$incoming/release.tar.gz' -C '$incoming'"
+      - name: Backup, migrate and deploy
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          opts=(-i "$RUNNER_TEMP/wisdom-ssh/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/wisdom-ssh/known_hosts" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=8)
+          incoming="$DEPLOY_ROOT/incoming/$GITHUB_SHA"
+          printf '%s\n%s\n' "$GITHUB_ACTOR" "$REGISTRY_TOKEN" | ssh "${opts[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash '$incoming/scripts/deploy-from-ci.sh' '$incoming/.release.env'"
+      - name: Verify public HTTPS
+        env:
+          PRODUCTION_URL: ${{ vars.PUBLIC_ORIGIN }}
+        run: |
+          [[ "$PRODUCTION_URL" =~ ^https://[a-zA-Z0-9.-]+$ ]]
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 --max-time 20 "$PRODUCTION_URL/health"
+          curl --fail --silent --show-error --max-time 20 "$PRODUCTION_URL/" > /dev/null
+          echo "Verified deployment: $PRODUCTION_URL ($GITHUB_SHA)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove runner SSH credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/wisdom-ssh/key" "$RUNNER_TEMP/wisdom-ssh/known_hosts" "$RUNNER_TEMP/wisdom-release.tar.gz"

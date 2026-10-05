@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [codex/wisdom-tree]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    name: TypeScript, application tests, PostgreSQL 17
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: wisdom_ci
+          POSTGRES_USER: wisdom_ci
+          POSTGRES_PASSWORD: disposable-ci-password
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U wisdom_ci -d wisdom_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js 24 with npm cache
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked dependencies
+        run: |
+          mkdir -p .local/ci-logs
+          npm ci --no-audit --no-fund 2>&1 | tee .local/ci-logs/install.log
+      - name: Typecheck both workspaces
+        run: npm run typecheck 2>&1 | tee .local/ci-logs/typecheck.log
+      - name: Application and compatible SDK tests
+        run: npm test 2>&1 | tee .local/ci-logs/tests.log
+      - name: Real PostgreSQL transactions and SDK integration
+        env:
+          CI_DATABASE_URL: postgresql://wisdom_ci:disposable-ci-password@127.0.0.1:5432/wisdom_ci
+        run: node --import tsx --test scripts/ci-postgres.ts 2>&1 | tee .local/ci-logs/postgres.log
+      - name: Production build
+        run: npm run build 2>&1 | tee .local/ci-logs/build.log
+      - name: Upload failed check logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-validation-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .local/ci-logs/*.log
+          retention-days: 7
+          if-no-files-found: ignore
+          include-hidden-files: true
+
+  docker-check:
+    name: Build ${{ matrix.name }} Docker image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            dockerfile: backend/Dockerfile
+          - name: web
+            dockerfile: Dockerfile.frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build production image
+        run: |
+          mkdir -p .local/ci-logs
+          docker build --pull --progress=plain -f '${{ matrix.dockerfile }}' -t 'wisdom-tree-ci-${{ matrix.name }}:${{ github.sha }}' . 2>&1 | tee '.local/ci-logs/docker-${{ matrix.name }}.log'
+      - name: Upload failed Docker build logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-docker-${{ matrix.name }}-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .local/ci-logs/*.log
+          retention-days: 7
+          if-no-files-found: ignore
+          include-hidden-files: true
