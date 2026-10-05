@@ -1,0 +1,45 @@
+.admin-user-table .admin-user-name {
+  min-width: 120px;
+  max-width: 240px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.admin-user-table .admin-user-name .cell-subline { font-size: 12px; }
+.admin-user-table .admin-user-bindings { min-width: 190px; max-width: 340px; }
+.admin-identities {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+.admin-identities li { min-width: 0; overflow-wrap: anywhere; }
+.admin-identity-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.admin-identity-heading strong { font-size: 13px; font-weight: 600; }
+.admin-identity-provider,
+.admin-identity-id,
+.admin-identity-empty { color: var(--muted); font-weight: 400; }
+.admin-identity-provider { font-size: 12px; }
+.admin-identity-id { display: block; margin-top: 2px; font-size: 12px; }
+.admin-identity-id code { font-size: inherit; }
+.admin-user-identity-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.admin-user-identity-summary h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.admin-user-identity-summary .admin-identities {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 1 1 300px;
+  gap: 16px 24px;
+}
+@media (max-width: 600px) {
+  .admin-user-identity-summary .admin-identities { grid-template-columns: minmax(0, 1fr); }
+}

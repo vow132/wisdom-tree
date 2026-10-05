@@ -31,8 +31,21 @@ small { font-size: 12px; }
 .muted { color: var(--muted); }
 .site-header { background: #fff; border-bottom: 1px solid var(--line); }
 .header-inner { max-width: 1280px; min-height: 78px; margin: auto; padding: 12px 28px; display: flex; align-items: center; gap: 32px; }
-.brand { display: flex; gap: 13px; align-items: baseline; color: var(--green); font-size: 23px; font-weight: 700; text-decoration: none; white-space: nowrap; }
-.brand span { color: #647462; font-size: 12px; font-weight: 400; }
+.header-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.brand { color: var(--green); font-size: 23px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.repository-controls { display: flex; position: relative; align-items: center; flex-shrink: 0; }
+.repository-link { display: grid; place-items: center; width: 44px; height: 44px; color: var(--muted); border-radius: 6px; }
+.repository-link:hover { color: var(--green); background: var(--soft-surface); }
+.repository-update { display: flex; align-items: flex-start; justify-content: flex-start; width: 44px; height: 44px; padding: 7px 0 0 2px; background: transparent; border: 0; border-radius: 6px; }
+.repository-update:hover:not(:disabled) { background: var(--soft-surface); }
+.repository-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.repository-update.current .repository-dot { background: #3b8753; }
+.repository-update.available .repository-dot, .repository-update.running .repository-dot { background: #c18b1a; }
+.repository-update:disabled { cursor: wait; }
+.repository-update.checking .repository-dot { opacity: .6; }
+.repository-progress { position: absolute; left: 0; top: calc(100% + 4px); z-index: 30; padding: 10px 12px; min-height: 44px; white-space: nowrap; font-size: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+[data-color-mode="dark"] .repository-update.current .repository-dot { background: #89c594; }
+[data-color-mode="dark"] .repository-update.available .repository-dot, [data-color-mode="dark"] .repository-update.running .repository-dot { background: #e4bd64; }
 .header-inner nav { display: flex; align-self: stretch; gap: 24px; align-items: center; }
 .header-inner nav a { text-decoration: none; font-size: 14px; color: #556959; padding: 12px 0; position: relative; white-space: nowrap; }
 .header-inner nav a.active { color: var(--green); font-weight: 700; }
@@ -203,7 +216,7 @@ details strong { display: block; margin-top: 12px; }
 .notice button { padding: 2px 0; border: 0; background: transparent; font-size: 11px; color: #6b7d64; margin-left: auto; flex-shrink: 0; }
 @media (max-width: 1050px) {
   .header-inner { gap: 20px; }
-  .brand span, .header-name { display: none; }
+  .header-name { display: none; }
   .header-inner nav { gap: 19px; }
   .garden-layout { grid-template-columns: minmax(0,1fr) 270px; gap: 20px; }
   .garden-controls { padding: 22px 19px; }
@@ -498,7 +511,6 @@ details strong { display: block; margin-top: 12px; }
 [data-color-mode="dark"] .coin-balance { color: #f1d08c; }
 [data-color-mode="dark"] .header-inner nav a { color: var(--muted); }
 [data-color-mode="dark"] .header-inner nav a.active { color: var(--green); }
-[data-color-mode="dark"] .brand span { color: var(--muted); }
 [data-color-mode="dark"] th,
 [data-color-mode="dark"] td,
 [data-color-mode="dark"] .garden-values div,

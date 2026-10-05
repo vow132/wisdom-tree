@@ -17,7 +17,8 @@ export interface ModelReply { id: string; position: number; text: string }
 export interface ModelRule { id: string; position: number; input: string; text: string; enabled: boolean }
 export interface Dialogue { modelId: string; modelDisplayName: string; replyId: string | null; content: string; index: number; total: number; fallback?: boolean }
 export interface ApiKey { id: string; name: string; prefix: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null; key?: string | null; recoverable?: boolean }
-export interface Identity { provider: string; providerUserId: string; displayName: string }
+export interface Identity { provider: string; providerUserId: string; displayName: string; createdAt: string }
+export interface AdminUser extends User { identities: Identity[] }
 export interface OAuthProviderConfig { provider: 'github' | 'linuxdo'; enabled: boolean; available: boolean; clientId: string; hasClientSecret: boolean; callbackUrl: string; source: 'database' | 'environment' | 'default' }
 export interface Usage { id: string; modelId: string; coinsCharged: number; createdAt: string; endpoint: string; status: string; username?: string; userId?: string }
 export interface Ledger { id: string; kind: string; coinsDelta: number; fertilizerDelta: number; reason: string; createdAt: string }

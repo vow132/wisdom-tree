@@ -57,7 +57,7 @@ test('administrator OAuth configuration, encryption and dynamic login availabili
   let app = await buildApp({ pool, config });
   const adminJar: Jar = new Map(), userJar: Jar = new Map();
   async function request(jar: Jar | null, method: string, path: string, body?: unknown, extra: Record<string, string> = {}) {
-    const headers: Record<string, string> = { ...extra };
+    const headers: Record<string, string> = { host: new URL(origin).host, ...extra };
     if (jar) headers.cookie = [...jar].map(([k, v]) => k + '=' + v).join('; ');
     if (!['GET', 'HEAD'].includes(method) && headers.origin === undefined) headers.origin = origin;
     const res = await app.inject({ method: method as any, url: path, headers, payload: body as any });

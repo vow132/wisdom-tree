@@ -9,14 +9,16 @@ import { registerGame } from './game.js';
 import { registerAdmin } from './admin.js';
 import { registerSimulator } from './simulator.js';
 import { simulatorServices } from './billing.js';
+import { registerUpdates } from './updates.js';
 
-export async function buildApp({ pool, config = {} }: { pool: PoolLike; config?: Partial<AppConfig> }): Promise<FastifyInstance> {
+export async function buildApp({ pool, config = {}, updateFetch }: { pool: PoolLike; config?: Partial<AppConfig>; updateFetch?: typeof fetch }): Promise<FastifyInstance> {
   const settings = readConfig(config);
   const app = Fastify({ logger: false, bodyLimit: 1000000, trustProxy: process.env.TRUST_PROXY === 'true' });
   await app.register(cookie);
   const allowedOrigins = new Set([settings.publicOrigin]);
   if (settings.development) { allowedOrigins.add('http://localhost:5173'); allowedOrigins.add('http://127.0.0.1:5173'); }
-  app.addHook('onRequest', async request => {
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
     if (request.url.startsWith('/api/') && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       const origin = request.headers.origin;
       if (!origin || !allowedOrigins.has(origin)) fail(403, 'invalid_origin', '此请求来源不受信任。');
@@ -35,6 +37,7 @@ export async function buildApp({ pool, config = {} }: { pool: PoolLike; config?:
   await registerAuth(app, services);
   await registerGame(app, services);
   await registerAdmin(app, services);
+  await registerUpdates(app, services, updateFetch);
   await registerSimulator(app, simulatorServices(services));
   return app;
 }

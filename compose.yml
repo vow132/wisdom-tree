@@ -36,6 +36,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       DB_POOL_MAX: ${DB_POOL_MAX:-5}
       NODE_OPTIONS: --max-old-space-size=256
+      APP_VERSION: ${APP_VERSION:-unknown}
+      UPDATE_REPOSITORY: ${UPDATE_REPOSITORY:-vow132/wisdom-tree}
+      UPDATE_BRANCH: ${UPDATE_BRANCH:-codex/wisdom-tree}
     depends_on:
       db: {condition: service_healthy}
     healthcheck:

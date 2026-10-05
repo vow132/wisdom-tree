@@ -8,6 +8,8 @@ import Garden from './Garden';
 import Account from './Account';
 import Admin from './Admin';
 import ThemeSelector from './Theme';
+import RepositoryStatus from './RepositoryStatus';
+import { useSessionRefresh } from './session-refresh';
 
 export default function App() {
   const me = useQuery({ queryKey: ['me'], queryFn: ({ signal }) => api<State>('/api/me', { signal }) });
@@ -15,6 +17,7 @@ export default function App() {
   const [notices, setNotices] = useState<(Notice & { id: number })[]>([]);
   const notify = useCallback((notice: Notice) => { const id = Date.now() + Math.random(); setNotices(items => [...items.slice(-2), { ...notice, id }]); window.setTimeout(() => setNotices(items => items.filter(item => item.id !== id)), notice.kind === 'error' ? 9000 : 5000); }, []);
   const location = useLocation();
+  useSessionRefresh(me.refetch, () => setAuth(false), message => { setAuth(true); notify({ kind: 'error', message }); });
   const previousUser = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (!me.data) return;
@@ -25,7 +28,7 @@ export default function App() {
   useEffect(() => { window.scrollTo(0, 0); }, [location.pathname]);
   useEffect(() => { const params = new URLSearchParams(location.search); const error = params.get('error'); if (error) notify({ kind: 'error', message: `账号授权失败：${error}` }); }, [location.search, notify]);
   return <NoticeContext.Provider value={notify}>
-    <header className="site-header"><div className="header-inner"><Link to="/" className="brand">智慧树<span>养成与 API</span></Link><nav aria-label="主导航"><NavLink to="/" end>花园</NavLink><NavLink to="/api">API 控制台</NavLink><NavLink to="/account">我的账号</NavLink>{me.data?.user?.role === 'admin' && <NavLink to="/admin">管理</NavLink>}</nav><div className="header-account"><ThemeSelector />{me.data?.user ? <><span className="coin-balance">{number(me.data.user.coins)} <small>金币</small></span><span className="header-name">{me.data.user.displayName || me.data.user.username}</span><Logout /></> : <Button variant="secondary" onClick={() => setAuth(true)} disabled={!me.data}>登录</Button>}</div></div></header>
+    <header className="site-header"><div className="header-inner"><div className="header-brand"><Link to="/" className="brand">智慧树</Link><RepositoryStatus isAdmin={me.data?.user?.role === 'admin'} /></div><nav aria-label="主导航"><NavLink to="/" end>花园</NavLink><NavLink to="/api">API 控制台</NavLink><NavLink to="/account">我的账号</NavLink>{me.data?.user?.role === 'admin' && <NavLink to="/admin">管理</NavLink>}</nav><div className="header-account"><ThemeSelector />{me.data?.user ? <><span className="coin-balance">{number(me.data.user.coins)} <small>金币</small></span><span className="header-name">{me.data.user.displayName || me.data.user.username}</span><Logout /></> : <Button variant="secondary" onClick={() => setAuth(true)} disabled={!me.data}>登录</Button>}</div></div></header>
     <main className={`main ${location.pathname.startsWith('/admin') ? 'admin-main' : ''}`}>
       {me.isPending ? <div className="page-loading" role="status"><h1>正在打开花园…</h1><p>连接你的智慧树。</p></div> : me.error ? <ErrorMessage error={me.error} retry={() => void me.refetch()} /> : me.data && <Routes>
         <Route path="/" element={<Garden key={me.data.user?.id || 'guest'} state={me.data} onLogin={() => setAuth(true)} />} />

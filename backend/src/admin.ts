@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
-import { Services, publicUser, publicTree, publicKey, publicModel, publicModelReply, publicModelReplyRule, publicUsage, publicLedger } from './services.js';
+import { Services, publicUser, publicTree, publicKey, publicIdentity, publicModel, publicModelReply, publicModelReplyRule, publicUsage, publicLedger } from './services.js';
 import { transaction } from './db.js';
 import { fail, record, text, integer, uuid, username, password, hashPassword, pagination } from './security.js';
 import type { ClientLike, UserRow, ModelRow, ModelReplyRow, ModelReplyRuleRow, Rules } from './types.js';
@@ -65,7 +65,13 @@ export async function registerAdmin(app: FastifyInstance, services: Services) {
     const pattern = `%${search}%`;
     const rows = (await services.pool.query<UserRow>('SELECT * FROM users WHERE username ILIKE $1 OR display_name ILIKE $1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3', [pattern, pageSize, offset])).rows;
     const total = Number((await services.pool.query('SELECT count(*) AS total FROM users WHERE username ILIKE $1 OR display_name ILIKE $1', [pattern])).rows[0].total);
-    return { items: rows.map(publicUser), total };
+    const identities = rows.length ? (await services.pool.query('SELECT user_id,provider,provider_user_id,display_name,created_at FROM identities WHERE user_id=ANY($1::uuid[]) ORDER BY provider', [rows.map(row => row.id)])).rows : [];
+    const byUser = new Map<string, ReturnType<typeof publicIdentity>[]>();
+    for (const identity of identities) {
+      const items = byUser.get(identity.user_id) || [];
+      items.push(publicIdentity(identity)); byUser.set(identity.user_id, items);
+    }
+    return { items: rows.map(row => ({ ...publicUser(row), identities: byUser.get(row.id) || [] })), total };
   });
   app.post('/api/admin/users', async request => {
     const actor = await services.requireAdmin(request); const body = adminBody(request.body); const account = username(body.username);
@@ -84,7 +90,7 @@ export async function registerAdmin(app: FastifyInstance, services: Services) {
     const user = (await services.pool.query<UserRow>('SELECT * FROM users WHERE id=$1', [id])).rows[0];
     if (!user) fail(404, 'not_found', '用户不存在。');
     const tree = (await services.pool.query('SELECT * FROM trees WHERE user_id=$1', [id])).rows[0];
-    const identities = (await services.pool.query('SELECT provider,provider_user_id,display_name FROM identities WHERE user_id=$1', [id])).rows.map(row => ({ provider: row.provider, providerUserId: row.provider_user_id, displayName: row.display_name }));
+    const identities = (await services.pool.query('SELECT provider,provider_user_id,display_name,created_at FROM identities WHERE user_id=$1 ORDER BY provider', [id])).rows.map(publicIdentity);
     const keys = (await services.pool.query('SELECT * FROM api_keys WHERE user_id=$1 ORDER BY created_at DESC', [id])).rows.map(publicKey);
     const usage = (await services.pool.query('SELECT * FROM api_requests WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50', [id])).rows.map(publicUsage);
     const ledger = (await services.pool.query('SELECT * FROM ledger WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50', [id])).rows.map(publicLedger);

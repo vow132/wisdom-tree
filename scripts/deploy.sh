@@ -57,6 +57,26 @@ if [[ -f $task_root/.release.env ]]; then
   [[ -f $task_old_dir/compose.deploy.yml && -f $task_old_dir/.release.env ]] || { printf 'Current release bundle is missing; refusing to replace it.\n' >&2; exit 1; }
 fi
 # Existing immutable bundles must match; never overwrite a successful release.
+if [[ $task_release_id == "$task_old_id" && $(wc -l < "$task_root/.release.env") -eq 5 ]]; then
+  task_already_running=1
+  for task_file in compose.deploy.yml Caddyfile scripts/deploy.sh scripts/rollback.sh; do
+    cmp -s "$task_bundle/$task_file" "$task_old_dir/$task_file" || task_already_running=0
+  done
+  # A manual update can queue behind the automatic push deployment. If the same
+  # commit is already healthy, a rebuilt provenance digest need not replace it.
+  for task_service in api web db caddy; do
+    task_container=$(docker ps --quiet --no-trunc --filter label=com.docker.compose.project=wisdom-tree --filter "label=com.docker.compose.service=$task_service")
+    task_image_key=${task_service^^}_IMAGE
+    task_saved_image=$(sed -n "s/^$task_image_key=//p" "$task_root/.release.env")
+    if [[ ! $task_container =~ ^[a-f0-9]{64}$ || -z $task_saved_image ]]; then task_already_running=0; continue; fi
+    task_container_state=$(docker inspect --format '{{.State.Running}} {{.State.Health.Status}} {{.Config.Image}}' "$task_container")
+    [[ $task_container_state == "true healthy $task_saved_image" ]] || task_already_running=0
+  done
+  if [[ $task_already_running -eq 1 ]]; then
+    printf 'Requested commit is already running in all four healthy services; no migration or replacement is needed.\n'
+    exit 0
+  fi
+fi
 if [[ -d $task_release_dir ]]; then
   for task_file in compose.deploy.yml Caddyfile scripts/deploy.sh scripts/rollback.sh; do
     cmp -s "$task_bundle/$task_file" "$task_release_dir/$task_file" || { printf 'Release bundle differs from the already saved commit.\n' >&2; exit 1; }
@@ -78,7 +98,7 @@ compose_for() {
   env -u API_IMAGE -u WEB_IMAGE -u DB_IMAGE -u CADDY_IMAGE -u RELEASE_ID -u POSTGRES_PASSWORD \
     -u API_KEY_ENCRYPTION_KEY -u PUBLIC_ORIGIN -u SITE_ADDRESS -u ACME_EMAIL \
     -u GITHUB_CLIENT_ID -u GITHUB_CLIENT_SECRET -u LINUXDO_CLIENT_ID -u LINUXDO_CLIENT_SECRET \
-    -u ADMIN_USERNAME -u ADMIN_PASSWORD -u LOG_LEVEL -u DB_POOL_MAX \
+    -u ADMIN_USERNAME -u ADMIN_PASSWORD -u LOG_LEVEL -u DB_POOL_MAX -u APP_VERSION -u UPDATE_REPOSITORY -u UPDATE_BRANCH \
     docker compose --project-name wisdom-tree --project-directory "$release" --env-file "$task_root/.env" --env-file "$release/.release.env" -f "$release/compose.deploy.yml" "$@"
 }
 compose() { compose_for "$task_release_dir" "$@"; }

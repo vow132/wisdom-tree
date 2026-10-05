@@ -1,4 +1,5 @@
 name: CI and deploy
+run-name: CI and deploy (${{ inputs.update_request_id || github.sha }})
 on:
   push:
     branches: [codex/wisdom-tree]
@@ -8,6 +9,18 @@ on:
         description: Deploy after all checks (requires DEPLOY_ENABLED=true)
         type: boolean
         default: true
+      expected_sha:
+        description: Optional exact version requested by the administrator update button
+        type: string
+        default: ''
+      expected_origin:
+        description: Optional requesting site's PUBLIC_ORIGIN, checked before any deployment
+        type: string
+        default: ''
+      update_request_id:
+        description: Optional administrator update request identifier for safe result recovery
+        type: string
+        default: ''
 permissions:
   contents: read
 defaults:
@@ -17,7 +30,38 @@ concurrency:
   group: wisdom-tree-production
   cancel-in-progress: false
 jobs:
+  requested-target:
+    name: Validate requested deployment target
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Match the request to this commit and deployment site
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          EXPECTED_ORIGIN: ${{ inputs.expected_origin }}
+          CONFIGURED_ORIGIN: ${{ vars.PUBLIC_ORIGIN }}
+          DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
+          UPDATE_REQUEST_ID: ${{ inputs.update_request_id }}
+        run: |
+          if test -n "$EXPECTED_SHA"; then
+            [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+            test "$EXPECTED_SHA" = "$GITHUB_SHA"
+            test "$DEPLOY_ENABLED" = true
+            [[ "$EXPECTED_ORIGIN" =~ ^https://[a-zA-Z0-9.-]+$ ]]
+            test "$EXPECTED_ORIGIN" = "$CONFIGURED_ORIGIN"
+            if test -n "$UPDATE_REQUEST_ID"; then
+              [[ "$UPDATE_REQUEST_ID" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]]
+            fi
+          elif test -n "$EXPECTED_ORIGIN"; then
+            echo 'An update site requires an exact version.' >&2
+            exit 1
+          fi
+          if test -n "$UPDATE_REQUEST_ID"; then
+            test -n "$EXPECTED_SHA"
+          fi
   verify:
+    needs: requested-target
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read

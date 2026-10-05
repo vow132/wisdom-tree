@@ -16,6 +16,9 @@ export function publicTree(row: any) {
 export function publicKey(row: any) {
   return { id: row.id, name: row.name, prefix: row.prefix, createdAt: row.created_at, lastUsedAt: row.last_used_at, revokedAt: row.revoked_at };
 }
+export function publicIdentity(row: any) {
+  return { provider: row.provider, providerUserId: row.provider_user_id, displayName: row.display_name, createdAt: row.created_at };
+}
 export function publicModel(row: ModelRow, admin = false) {
   const common = { id: row.id, displayName: row.display_name, coinsPerCall: row.coins_per_call, enabled: row.enabled, isWisdomTree: row.is_wisdom_tree === true };
   return admin ? { ...common, replyText: row.reply_text, streamChunkChars: row.stream_chunk_chars, streamDelayMs: row.stream_delay_ms, replyCount: Number(row.reply_count ?? 0), ruleCount: Number(row.rule_count ?? 0) } : common;

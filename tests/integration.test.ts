@@ -74,7 +74,7 @@ test('complete application and SDK integration', { timeout: 120_000 }, async t =
     for (const cookie of response.cookies || []) jar.set(cookie.name, cookie.value);
   }
   async function request(jar: Jar | null, method: string, url: string, body?: unknown, extraHeaders: Record<string, string> = {}) {
-    const headers: Record<string, string> = { ...extraHeaders };
+    const headers: Record<string, string> = { host: new URL(origin).host, ...extraHeaders };
     if (jar) headers.cookie = [...jar].map(([name, value]) => name + '=' + value).join('; ');
     if (!['GET', 'HEAD'].includes(method)) headers.origin = origin;
     const response = await app.inject({ method: method as any, url, payload: body as any, headers });

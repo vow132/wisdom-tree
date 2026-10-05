@@ -17,6 +17,9 @@ export interface AppConfig {
   linuxdoUserUrl: string;
   development: boolean;
   apiKeyEncryptionKey: string;
+  appVersion: string;
+  updateRepository: string;
+  updateBranch: string;
 }
 
 export function readConfig(overrides: Partial<AppConfig> = {}): AppConfig {
@@ -29,10 +32,15 @@ export function readConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     githubTokenUrl: 'https://github.com/login/oauth/access_token', githubUserUrl: 'https://api.github.com/user',
     linuxdoAuthorizeUrl: 'https://connect.linux.do/oauth2/authorize',
     linuxdoTokenUrl: 'https://connect.linux.do/oauth2/token', linuxdoUserUrl: 'https://connect.linux.do/api/user',
-    development: process.env.NODE_ENV !== 'production', apiKeyEncryptionKey: '', ...overrides,
+    development: process.env.NODE_ENV !== 'production', apiKeyEncryptionKey: '',
+    appVersion: process.env.APP_VERSION || '', updateRepository: process.env.UPDATE_REPOSITORY || 'vow132/wisdom-tree',
+    updateBranch: process.env.UPDATE_BRANCH || 'codex/wisdom-tree', ...overrides,
   };
   merged.publicOrigin = new URL(merged.publicOrigin).origin;
   if (overrides.secureCookies === undefined && !process.env.COOKIE_SECURE) merged.secureCookies = merged.publicOrigin.startsWith('https://');
   merged.apiKeyEncryptionKey = loadApiKeyEncryptionKey(overrides.apiKeyEncryptionKey ?? process.env.API_KEY_ENCRYPTION_KEY, merged.development);
+  if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(merged.updateRepository) || merged.updateRepository.length > 200
+    || !merged.updateBranch || merged.updateBranch.length > 200 || /[\s?#]/.test(merged.updateBranch)) throw new Error('Invalid update repository or branch.');
+  if (!/^[a-f0-9]{40}$/.test(merged.appVersion)) merged.appVersion = '';
   return merged;
 }
