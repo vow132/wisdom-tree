@@ -16,7 +16,7 @@ import { estimateTokens, limitText } from '../backend/src/simulator.js';
 const origin = 'http://127.0.0.1:5173';
 const password = 'Disposable-default-reply-password-2026';
 const legacyReply = '智慧树说：每天照料一点，耐心就会发芽。';
-const seededModels = ['gpt-5.6-luna', 'gpt-5.6-sol', 'claude-sonnet-4-6'];
+const seededModels = ['gpt-5.6-luna', 'gpt-5.6-sol', 'claude-fable-5.1'];
 type Jar = Map<string, string>;
 
 test('public default seeds and long ASCII replies survive fresh installs and upgrades', { timeout: 120_000 }, async t => {
@@ -28,6 +28,9 @@ test('public default seeds and long ASCII replies survive fresh installs and upg
   process.env.PGLITE_PATH = dataDir;
   const pool = await getPool();
   const corpus = JSON.parse(await readFile(new URL('../backend/data/wisdom-tree-quotes.json', import.meta.url), 'utf8')) as { text: string }[];
+  const defaultModels = JSON.parse(await readFile(new URL('../backend/data/default-models.json', import.meta.url), 'utf8')) as {
+    id: string; displayName: string; coinsPerCall: number; enabled: boolean; streamChunkChars: number; streamDelayMs: number;
+  }[];
   let app: Awaited<ReturnType<typeof buildApp>> | undefined;
   try {
     await runMigrations(pool);
@@ -44,6 +47,14 @@ test('public default seeds and long ASCII replies survive fresh installs and upg
       assert.ok(DEFAULT_MODEL_REPLY.includes('本仓库静态托管在Vercel上，不会上传您的任何数据'));
       assert.ok(DEFAULT_MODEL_REPLY.includes('记住：路边免费鸡蛋千万不要乱吃！！！ 然后把鸡蛋分享给你的朋友吧'));
       assert.ok(estimateTokens(DEFAULT_MODEL_REPLY) <= 1024);
+      assert.deepEqual(defaultModels.map(model => model.id).sort(), [...seededModels].sort());
+      const metadata = (await pool.query(`SELECT id,display_name AS "displayName",coins_per_call AS "coinsPerCall",enabled,
+        stream_chunk_chars AS "streamChunkChars",stream_delay_ms AS "streamDelayMs"
+        FROM models WHERE is_wisdom_tree=false ORDER BY id`)).rows;
+      assert.deepEqual(metadata, defaultModels.map(({ id, displayName, coinsPerCall, enabled, streamChunkChars, streamDelayMs }) => ({
+        id, displayName, coinsPerCall, enabled, streamChunkChars, streamDelayMs,
+      })).sort((left, right) => left.id.localeCompare(right.id)));
+      assert.equal((await pool.query('SELECT count(*)::integer AS n FROM model_reply_rules')).rows[0].n, 0);
       const models = (await pool.query('SELECT id,reply_text FROM models WHERE is_wisdom_tree=false ORDER BY id')).rows;
       assert.deepEqual(models.map(row => row.id), [...seededModels].sort());
       for (const model of models) {
@@ -145,8 +156,8 @@ test('public default seeds and long ASCII replies survive fresh installs and upg
       await pool.query('UPDATE model_replies SET text=$2 WHERE model_id=$1', ['gpt-5.6-luna', legacyReply]);
       await pool.query('UPDATE models SET reply_text=$2 WHERE id=$1', ['gpt-5.6-sol', customFallback]);
       await pool.query('UPDATE model_replies SET text=$2 WHERE model_id=$1', ['gpt-5.6-sol', customPool]);
-      await pool.query('UPDATE models SET reply_text=$2 WHERE id=$1', ['claude-sonnet-4-6', legacyReply]);
-      await pool.query('UPDATE model_replies SET text=$2 WHERE model_id=$1', ['claude-sonnet-4-6', customPool]);
+      await pool.query('UPDATE models SET reply_text=$2 WHERE id=$1', ['claude-fable-5.1', legacyReply]);
+      await pool.query('UPDATE model_replies SET text=$2 WHERE model_id=$1', ['claude-fable-5.1', customPool]);
       const idem = randomUUID();
       const payload = { model: 'gpt-5.6-luna', messages: [{ role: 'user' as const, content: '升级前已受理' }], max_tokens: 1024 };
       const original = await sdk.chat.completions.create(payload, { headers: { 'Idempotency-Key': idem } });
@@ -158,17 +169,39 @@ test('public default seeds and long ASCII replies survive fresh installs and upg
       const models = (await pool.query('SELECT id,reply_text FROM models')).rows;
       assert.equal(models.find(row => row.id === 'gpt-5.6-luna')?.reply_text, DEFAULT_MODEL_REPLY);
       assert.equal(models.find(row => row.id === 'gpt-5.6-sol')?.reply_text, customFallback);
-      assert.equal(models.find(row => row.id === 'claude-sonnet-4-6')?.reply_text, DEFAULT_MODEL_REPLY);
+      assert.equal(models.find(row => row.id === 'claude-fable-5.1')?.reply_text, DEFAULT_MODEL_REPLY);
       assert.equal((await pool.query('SELECT text FROM model_replies WHERE model_id=$1', ['gpt-5.6-luna'])).rows[0].text, DEFAULT_MODEL_REPLY);
       assert.equal((await pool.query('SELECT text FROM model_replies WHERE model_id=$1', ['gpt-5.6-sol'])).rows[0].text, customPool);
-      assert.equal((await pool.query('SELECT text FROM model_replies WHERE model_id=$1', ['claude-sonnet-4-6'])).rows[0].text, customPool);
+      assert.equal((await pool.query('SELECT text FROM model_replies WHERE model_id=$1', ['claude-fable-5.1'])).rows[0].text, customPool);
       assert.deepEqual(await sdk.chat.completions.create(payload, { headers: { 'Idempotency-Key': idem } }), original);
       assert.equal((await ok(userJar, 'GET', '/api/me')).user.coins, beforeCoins);
       assert.equal((await pool.query('SELECT result FROM api_requests WHERE user_id=$1 AND idem_key=$2', [userId, idem])).rows[0].result.replyText, legacyReply);
       assert.equal((await sdk.chat.completions.create(payload)).choices[0].message.content, DEFAULT_MODEL_REPLY);
-      assert.equal((await sdk.chat.completions.create({ ...payload, model: 'claude-sonnet-4-6' })).choices[0].message.content, customPool);
+      assert.equal((await sdk.chat.completions.create({ ...payload, model: 'claude-fable-5.1' })).choices[0].message.content, customPool);
       assert.equal((await pool.query('SELECT reply_text FROM models WHERE id=$1', ['qa-custom-art'])).rows[0].reply_text, '管理员自己的返回文本\n保留自定义内容');
       assert.deepEqual((await pool.query('SELECT text FROM model_replies WHERE model_id=$1 ORDER BY position', ['wisdom-tree'])).rows.map(row => row.text), corpus.map(row => row.text));
+    });
+
+    await t.test('metadata seed never renames or resets models in an existing account database', async () => {
+      const renamedId = 'qa-renamed-default-luna';
+      await ok(adminJar, 'PATCH', '/api/admin/models/gpt-5.6-luna', {
+        id: renamedId, displayName: '管理员改名的 Luna', coinsPerCall: 17, enabled: false, streamChunkChars: 21, streamDelayMs: 1,
+      });
+      await ok(adminJar, 'PATCH', '/api/admin/models/claude-fable-5.1', {
+        id: 'claude-sonnet-4-6', displayName: '管理员配置的旧 Claude ID', coinsPerCall: 19, enabled: false, streamChunkChars: 13, streamDelayMs: 7,
+      });
+      const metadataQuery = `SELECT id,display_name,coins_per_call,enabled,stream_chunk_chars,stream_delay_ms,reply_text
+        FROM models ORDER BY id`;
+      const before = (await pool.query(metadataQuery)).rows;
+      const repliesBefore = (await pool.query('SELECT id,model_id,position,text FROM model_replies ORDER BY model_id,position')).rows;
+      await pool.query('DELETE FROM schema_migrations WHERE name=$1', ['008_default_models.sql']);
+      await runMigrations(pool);
+      await runMigrations(pool);
+      assert.deepEqual((await pool.query(metadataQuery)).rows, before);
+      assert.deepEqual((await pool.query('SELECT id,model_id,position,text FROM model_replies ORDER BY model_id,position')).rows, repliesBefore);
+      assert.equal((await pool.query('SELECT id FROM models WHERE id=$1', ['gpt-5.6-luna'])).rows.length, 0);
+      assert.equal((await pool.query('SELECT id FROM models WHERE id=$1', ['claude-fable-5.1'])).rows.length, 0);
+      assert.equal((await pool.query('SELECT count(*)::integer AS n FROM model_replies WHERE model_id=$1', ['wisdom-tree'])).rows[0].n, 80);
     });
   } finally {
     if (app) await app.close();

@@ -4,14 +4,16 @@
 
 ## 全新部署的初始内容
 
-| 模型 ID | 金币／次 | 默认回复 |
-|---|---:|---|
-| `gpt-5.6-luna` | 1 | 鸡蛋 ASCII 图案与指定仓库文案 |
-| `gpt-5.6-sol` | 2 | 鸡蛋 ASCII 图案与指定仓库文案 |
-| `claude-sonnet-4-6` | 5 | 鸡蛋 ASCII 图案与指定仓库文案 |
-| `wisdom-tree` | 1 | 80 条智慧树语料，按编号循环 |
+| 模型 ID | 显示名称 | 金币／次 | 默认回复 |
+|---|---|---:|---|
+| `gpt-5.6-luna` | `gpt-5.6-luna` | 1 | 鸡蛋 ASCII 图案与指定仓库文案 |
+| `gpt-5.6-sol` | `gpt-5.6-sol` | 2 | 鸡蛋 ASCII 图案与指定仓库文案 |
+| `claude-fable-5.1` | `claude-fable-5.1` | 5 | 鸡蛋 ASCII 图案与指定仓库文案 |
+| `wisdom-tree` | 智慧树 | 1 | 80 条智慧树语料，按编号循环 |
 
 三个非智慧树模型各有一条编号回复，其内容与后备默认文本相同。鸡蛋图案来自参考项目 [fake-ai-api 的原始 ASCII 文件](https://github.com/XTxiaoting14332/fake-ai-api/blob/main/ascii.txt)，共 24 行，每行 46 个字符。公开固定回复保存在 [default-model-reply.txt](../backend/data/default-model-reply.txt)，以 Markdown `text` 代码围栏保留空格和换行，后面附上指定的仓库链接及文案。
+
+三个模型的公开 ID、显示名称、价格和流式配置保存在 [default-models.json](../backend/data/default-models.json)，与站点当前默认配置一致：均启用，每块 8 个字符、间隔 20 毫秒，初始没有输入匹配规则。
 
 该固定回复中的“本仓库静态托管在 Vercel 上，不会上传您的任何数据”是站点所有者指定的模拟回复文字。智慧树应用实际采用 Docker、Fastify 与 PostgreSQL 部署，并在当前部署的数据库保存账户、养成、密钥密文和调用记录；模拟回复文字不是数据库或部署方式的说明。
 
@@ -26,6 +28,8 @@
 ## 升级已有数据库
 
 [007_default_model_reply.sql](../backend/migrations/007_default_model_reply.sql) 只替换非智慧树模型中仍保留旧占位句“智慧树说：每天照料一点，耐心就会发芽。”的默认文本和编号条目。管理员编辑过的其他文字会保留，智慧树的 80 条语料不受影响；重复运行迁移不会重复添加条目。
+
+[008_default_models.sql](../backend/migrations/008_default_models.sql) 在用户表为空时同步上述公开模型 ID 和显示名称等初始配置。已有账户的数据库不会被这次元数据迁移覆盖；管理员修改过的 ID、显示名称、价格、启停或流式参数继续保留。旧部署若仍使用 `claude-sonnet-4-6`，该 ID 会继续有效，应以本部署 `/v1/models` 的结果为准。
 
 已经接受的请求保存独立回复快照。升级或修改模型后，使用原 `Idempotency-Key` 和原请求体重放，仍得到原来的回复且不重复扣费；新请求使用当前配置。
 

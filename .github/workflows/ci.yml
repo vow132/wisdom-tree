@@ -52,8 +52,10 @@ jobs:
           npm ci --no-audit --no-fund 2>&1 | tee .local/ci-logs/install.log
       - name: Typecheck both workspaces
         run: npm run typecheck 2>&1 | tee .local/ci-logs/typecheck.log
-      - name: Verify public default reply seed
-        run: node scripts/generate-default-reply-migration.mjs --check
+      - name: Verify public default model seeds
+        run: |
+          node scripts/generate-default-reply-migration.mjs --check
+          node scripts/generate-default-model-migration.mjs --check
       - name: Application and compatible SDK tests
         run: npm test 2>&1 | tee .local/ci-logs/tests.log
       - name: Real PostgreSQL transactions and SDK integration

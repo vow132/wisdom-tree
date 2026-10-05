@@ -125,7 +125,7 @@ async function main() {
   assert.equal(health.status, 'ok');
   assert.equal(health.service, 'wisdom-tree');
   const publicModels = (await json('/api/models')).items;
-  for (const [id, price] of [['gpt-5.6-luna', 1], ['gpt-5.6-sol', 2], ['claude-sonnet-4-6', 5]]) {
+  for (const [id, price] of [['gpt-5.6-luna', 1], ['gpt-5.6-sol', 2], ['claude-fable-5.1', 5]]) {
     assert.ok(publicModels.some(model => model.id === id && model.coinsPerCall === price), 'Fresh model defaults are incorrect.');
   }
   assert.equal((await json('/api/me')).user, null);
@@ -167,14 +167,14 @@ async function main() {
   const models = await json('/v1/models', { headers: bearer });
   assert.equal(models.object, 'list');
   assert.ok(models.data.some(model => model.id === 'gpt-5.6-luna'));
-  const count = await json('/v1/messages/count_tokens', { method: 'POST', body: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hello' }] }, headers: anthropic });
+  const count = await json('/v1/messages/count_tokens', { method: 'POST', body: { model: 'claude-fable-5.1', messages: [{ role: 'user', content: 'hello' }] }, headers: anthropic });
   assert.ok(count.input_tokens > 0);
   await json('/v1/models', { headers: { authorization: 'Bearer sk_invalid_disposable_' + randomUUID() } }, 401);
   assert.equal((await state()).user.coins, 20, 'Free endpoints or invalid credentials charged coins.');
 
   const chatBody = { model: 'gpt-5.6-luna', messages: [{ role: 'user', content: 'hello' }] };
   const responsesBody = { model: 'gpt-5.6-sol', input: 'hello' };
-  const messagesBody = { model: 'claude-sonnet-4-6', max_tokens: 2048, messages: [{ role: 'user', content: 'hello' }] };
+  const messagesBody = { model: 'claude-fable-5.1', max_tokens: 2048, messages: [{ role: 'user', content: 'hello' }] };
   const chat = chatText(await json('/v1/chat/completions', { method: 'POST', body: chatBody, headers: bearer }));
   const response = responseText(await json('/v1/responses', { method: 'POST', body: responsesBody, headers: bearer }));
   const message = messageText(await json('/v1/messages', { method: 'POST', body: messagesBody, headers: anthropic }));

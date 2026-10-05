@@ -138,9 +138,9 @@ test('PostgreSQL 17 migration, row locking, billing and SDK integration', { time
       assert.equal(text, chat.choices[0].message.content);
       const response = await openai.responses.create({ model: 'gpt-5.6-sol', input: 'hello' });
       assert.equal((await openai.responses.stream({ model: 'gpt-5.6-sol', input: 'hello' }).finalResponse()).output_text, response.output_text);
-      const message = await anthropic.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 100, messages: [{ role: 'user', content: 'hello' }] });
-      assert.deepEqual((await anthropic.messages.stream({ model: 'claude-sonnet-4-6', max_tokens: 100, messages: [{ role: 'user', content: 'hello' }] }).finalMessage()).content, message.content);
-      assert.ok((await anthropic.messages.countTokens({ model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hello' }] })).input_tokens > 0);
+      const message = await anthropic.messages.create({ model: 'claude-fable-5.1', max_tokens: 100, messages: [{ role: 'user', content: 'hello' }] });
+      assert.deepEqual((await anthropic.messages.stream({ model: 'claude-fable-5.1', max_tokens: 100, messages: [{ role: 'user', content: 'hello' }] }).finalMessage()).content, message.content);
+      assert.ok((await anthropic.messages.countTokens({ model: 'claude-fable-5.1', messages: [{ role: 'user', content: 'hello' }] })).input_tokens > 0);
       assert.equal((await me()).user.coins, 84);
     });
     await t.test('model rename cascades references but preserves accepted reply snapshots', async () => {

@@ -226,11 +226,11 @@ test('complete application and SDK integration', { timeout: 120_000 }, async t =
       const finalResponse = await responseStream.finalResponse();
       assert.equal(finalResponse.output_text, response.output_text);
       assert.equal(finalResponse.status, 'completed');
-      const message = await anthropic.messages.create({ model: 'claude-sonnet-4-6', max_tokens: 100, messages: [{ role: 'user', content: '你好' }] });
+      const message = await anthropic.messages.create({ model: 'claude-fable-5.1', max_tokens: 100, messages: [{ role: 'user', content: '你好' }] });
       assert.equal(message.content[0].type, 'text');
-      const finalMessage = await anthropic.messages.stream({ model: 'claude-sonnet-4-6', max_tokens: 100, messages: [{ role: 'user', content: '你好' }] }).finalMessage();
+      const finalMessage = await anthropic.messages.stream({ model: 'claude-fable-5.1', max_tokens: 100, messages: [{ role: 'user', content: '你好' }] }).finalMessage();
       assert.deepEqual(finalMessage.content, message.content);
-      const count = await anthropic.messages.countTokens({ model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: '测试' }] });
+      const count = await anthropic.messages.countTokens({ model: 'claude-fable-5.1', messages: [{ role: 'user', content: '测试' }] });
       assert.ok(count.input_tokens > 0);
       assert.equal((await state()).user.coins, before - 18);
     });
@@ -239,7 +239,7 @@ test('complete application and SDK integration', { timeout: 120_000 }, async t =
       const before = (await state()).user.coins;
       assert.equal((await request(null, 'POST', '/v1/chat/completions', { model: 'missing', messages: [{ role: 'user', content: 'hello' }] }, headers)).statusCode, 404);
       assert.equal((await request(null, 'POST', '/v1/responses', { model: 'gpt-5.6-luna' }, headers)).statusCode, 400);
-      assert.equal((await request(null, 'POST', '/v1/messages', { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hello' }] }, headers)).statusCode, 400);
+      assert.equal((await request(null, 'POST', '/v1/messages', { model: 'claude-fable-5.1', messages: [{ role: 'user', content: 'hello' }] }, headers)).statusCode, 400);
       assert.equal((await request(null, 'POST', '/v1/chat/completions', { model: 'gpt-5.6-luna', messages: [{ role: 'garbage' }] }, headers)).statusCode, 400);
       assert.equal((await request(null, 'POST', '/v1/completions', { model: 'gpt-5.6-luna', prompt: null }, headers)).statusCode, 400);
       assert.equal((await state()).user.coins, before);

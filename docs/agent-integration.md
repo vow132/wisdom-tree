@@ -2,7 +2,9 @@
 
 本服务按模型每次请求扣固定金币。先检查该模型的指定回复规则，未命中时从独立的编号回复库按顺序循环返回一条；回复库为空时使用默认文本。工具定义与历史消息可传入，模拟回复不会执行工具或进行真实推理。网页“API”页创建的密钥以 `sk_` 开头，可在自己的列表随时查看明文并复制；管理员只有密钥标识。
 
-预置 `gpt-5.6-luna`（1 金币/次）、`gpt-5.6-sol`（2 金币/次）、`claude-sonnet-4-6`（5 金币/次）与 `wisdom-tree`（显示名称“智慧树”，1 金币/次），价格与 ID 均可由管理员调整。模型 ID 只是模拟标识。SDK 和 agent 配置中的 `model` 必须使用当前公开 ID；可先调用 `/v1/models` 查看可用 ID。如果管理员已经改名，请同步修改下面示例中的 `model`。旧 ID 不会自动成为别名。
+预置 `gpt-5.6-luna`（1 金币/次）、`gpt-5.6-sol`（2 金币/次）、`claude-fable-5.1`（5 金币/次）与 `wisdom-tree`（显示名称“智慧树”，1 金币/次），价格与 ID 均可由管理员调整。模型 ID 只是模拟标识。SDK 和 agent 配置中的 `model` 必须使用当前公开 ID；可先调用 `/v1/models` 查看可用 ID。如果管理员已经改名，请同步修改下面示例中的 `model`。旧 ID 不会自动成为别名。
+
+全新部署的三个非智慧树模型显示名称与 ID 相同，默认返回鸡蛋 ASCII 图案及仓库文案，详细种子配置见 [默认数据库](default-database.md)。要保留完整图案和文案，请为 Chat Completions、Completions 和 Messages 设置 `max_tokens: 1024` 或更高，为 Responses 设置 `max_output_tokens: 1024` 或更高；较小额度会按协议正常截断。
 
 ## 指定输入与回复
 
@@ -54,7 +56,7 @@ supports_websockets = false
 export ANTHROPIC_BASE_URL="https://你的域名"
 export ANTHROPIC_API_KEY="网页创建的密钥"
 unset ANTHROPIC_AUTH_TOKEN
-export ANTHROPIC_MODEL="claude-sonnet-4-6"
+export ANTHROPIC_MODEL="claude-fable-5.1"
 claude
 ```
 
@@ -101,8 +103,8 @@ const client = new Anthropic({
   baseURL: 'https://你的域名',
 });
 const stream = client.messages.stream({
-  model: 'claude-sonnet-4-6',
-  max_tokens: 256,
+  model: 'claude-fable-5.1',
+  max_tokens: 1024,
   messages: [{ role: 'user', content: '你好，智慧树' }],
 });
 stream.on('text', text => process.stdout.write(text));
