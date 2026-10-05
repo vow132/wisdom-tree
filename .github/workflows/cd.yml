@@ -30,6 +30,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: 'false'
     outputs:
       api: ${{ steps.release.outputs.api }}
       web: ${{ steps.release.outputs.web }}

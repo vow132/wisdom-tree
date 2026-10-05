@@ -6,8 +6,16 @@ node_modules
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
 backups
+**/backups
 test-results
 *.zip
 *.log
 .git
+# QA evidence is unnecessary in build contexts and may display owner API keys.
+docs/qa
+**/__pycache__
+*.pyc

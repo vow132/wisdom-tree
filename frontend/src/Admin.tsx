@@ -49,7 +49,7 @@ function UserDetailPanel({ id }: { id: string }) {
 }
 
 function ModelAdmin() {
-  const query = useQuery({ queryKey: ['admin', 'models'], queryFn: ({ signal }) => api<{ items: Model[] }>('/api/admin/models', { signal }) });
+  const query = useQuery({ queryKey: ['admin', 'models'], queryFn: ({ signal }) => api<{ items: Model[]; defaultReplyText: string }>('/api/admin/models', { signal }) });
   const [editing, setEditing] = useState<Model | 'new' | null>(null);
   const save = useAction<{ originalId?: string; body: unknown }>(({ originalId, body }) => api(`/api/admin/models${originalId ? `/${encodeURIComponent(originalId)}` : ''}`, { method: originalId ? 'PATCH' : 'POST', body }), '模型配置已保存。', () => setEditing(null));
   const remove = useAction<string>(id => api(`/api/admin/models/${encodeURIComponent(id)}`, { method: 'DELETE' }), '模型已软删除。');
@@ -76,7 +76,7 @@ function ModelAdmin() {
           <Field label="流式块间隔（毫秒）"><input name="streamDelayMs" type="number" step="1" min="0" required defaultValue={current?.streamDelayMs ?? 30} /></Field>
           <label className="checkbox-field"><input type="checkbox" name="enabled" defaultChecked={current?.enabled ?? true} />启用此模型</label>
         </div>
-        <Field label="默认返回文本（回复库为空时）" help="输入未匹配规则且编号回复库为空时，返回此内容。"><textarea name="replyText" rows={5} required maxLength={20000} defaultValue={current?.replyText || ''} placeholder="回复库为空时返回的内容" /></Field>
+        <Field label="默认返回文本（回复库为空时）" help="输入未匹配规则且编号回复库为空时，返回此内容。"><textarea name="replyText" rows={5} required maxLength={20000} defaultValue={current?.replyText ?? query.data?.defaultReplyText ?? ''} placeholder="回复库为空时返回的内容" /></Field>
         {current && <div className="reply-section-links"><Link className="text-link" to={`/admin/models/${encodeURIComponent(current.id)}/rules`} onClick={() => setEditing(null)}>设置输入匹配规则（{current.ruleCount ?? 0} 条）</Link></div>}
         <div className="dialog-actions"><Button type="button" variant="secondary" onClick={() => setEditing(null)}>取消</Button><Button type="submit" pending={save.isPending}>保存模型</Button></div>
       </form>

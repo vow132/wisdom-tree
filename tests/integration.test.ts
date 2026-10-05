@@ -210,7 +210,7 @@ test('complete application and SDK integration', { timeout: 120_000 }, async t =
       const models = await openai.models.list();
       assert.ok(models.data.some(model => model.id === 'gpt-5.6-luna'));
       const chat = await openai.chat.completions.create({ model: 'gpt-5.6-luna', messages: [{ role: 'user', content: '你好' }] });
-      assert.ok(chat.choices[0].message.content?.includes('智慧树'));
+      assert.ok(chat.choices[0].message.content?.includes('https://github.com/vow132/wisdom-tree'));
       const stream = await openai.chat.completions.create({ model: 'gpt-5.6-luna', messages: [{ role: 'user', content: '你好' }], stream: true, stream_options: { include_usage: true } });
       let chatText = '';
       for await (const part of stream) chatText += part.choices[0]?.delta.content || '';
@@ -221,7 +221,7 @@ test('complete application and SDK integration', { timeout: 120_000 }, async t =
       for await (const part of completionStream) completionText += part.choices[0]?.text || '';
       assert.equal(completionText, completion.choices[0].text);
       const response = await openai.responses.create({ model: 'gpt-5.6-sol', input: '你好' });
-      assert.ok(response.output_text.includes('智慧树'));
+      assert.ok(response.output_text.includes('https://github.com/vow132/wisdom-tree'));
       const responseStream = openai.responses.stream({ model: 'gpt-5.6-sol', input: '你好' });
       const finalResponse = await responseStream.finalResponse();
       assert.equal(finalResponse.output_text, response.output_text);

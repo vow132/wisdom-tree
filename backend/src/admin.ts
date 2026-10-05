@@ -5,6 +5,7 @@ import { transaction } from './db.js';
 import { fail, record, text, integer, uuid, username, password, hashPassword, pagination } from './security.js';
 import type { ClientLike, UserRow, ModelRow, ModelReplyRow, ModelReplyRuleRow, Rules } from './types.js';
 import { oauthProvider } from './oauth-settings.js';
+import { DEFAULT_MODEL_REPLY } from './default-reply.js';
 
 export async function registerAdmin(app: FastifyInstance, services: Services) {
   async function guard(db: ClientLike, actor: UserRow) {
@@ -142,7 +143,7 @@ export async function registerAdmin(app: FastifyInstance, services: Services) {
       LEFT JOIN (SELECT model_id,count(*) AS reply_count FROM model_replies GROUP BY model_id) r ON r.model_id=m.id
       LEFT JOIN (SELECT model_id,count(*) AS rule_count FROM model_reply_rules GROUP BY model_id) c ON c.model_id=m.id
       WHERE m.deleted_at IS NULL ORDER BY m.coins_per_call,m.id`)).rows;
-    return { items: models.map(row => publicModel(row, true)) };
+    return { items: models.map(row => publicModel(row, true)), defaultReplyText: DEFAULT_MODEL_REPLY };
   });
   function modelBody(body: any, existing?: ModelRow) {
     const id = body.id === undefined && existing ? existing.id : text(body.id, '模型 ID', 128);
@@ -151,7 +152,7 @@ export async function registerAdmin(app: FastifyInstance, services: Services) {
     const coinsPerCall = body.coinsPerCall === undefined && existing ? existing.coins_per_call : integer(body.coinsPerCall, '每次金币价格', 0, 1000000);
     const enabled = body.enabled === undefined ? existing?.enabled ?? true : body.enabled;
     if (typeof enabled !== 'boolean') fail(400, 'invalid_request', '启用状态必须是布尔值。');
-    const replyText = body.replyText === undefined && existing ? existing.reply_text : body.replyText;
+    const replyText = body.replyText === undefined ? existing?.reply_text ?? DEFAULT_MODEL_REPLY : body.replyText;
     const streamChunkChars = body.streamChunkChars === undefined ? existing?.stream_chunk_chars ?? 8 : integer(body.streamChunkChars, '分片字符数', 1, 1000);
     const streamDelayMs = body.streamDelayMs === undefined ? existing?.stream_delay_ms ?? 20 : integer(body.streamDelayMs, '分片间隔', 0, 1000);
     validateReply(replyText, streamChunkChars, streamDelayMs);

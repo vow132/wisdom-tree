@@ -114,7 +114,7 @@ Client Secret 加密保存在数据库中，后台只显示是否已配置；留
 | `claude-sonnet-4-6` | 5 |
 | `wisdom-tree`（智慧树） | 1 |
 
-模型名称仅为模拟服务的标识，不代表实际模型能力。更多配置见 [agent 接入说明](docs/agent-integration.md)。
+三个非智慧树模型默认返回鸡蛋 ASCII 图案及指定仓库文案；下载后新建数据库会自动导入同一套公开配置，详见 [默认数据库与模型回复](docs/default-database.md)。模型名称仅为模拟服务的标识，不代表实际模型能力。更多配置见 [agent 接入说明](docs/agent-integration.md)。
 
 请求通过校验并被后端事务接受后扣费；接受前失败不收费，接受后连接中断仍计一次。查询模型、估算 token、健康检查免费。返回的 token 用量是估算值，金币只按请求次数计费。
 
