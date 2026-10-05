@@ -205,7 +205,6 @@ npm test
 
 项目代码采用 [MIT License](LICENSE)。原版游戏素材的权利归原权利人所有，来源与使用说明见 [素材说明](docs/assets.md)。
 
-模拟 API 的思路参考 [fake-ai-api](https://github.com/XTxiaoting14332/fake-ai-api)；页面顶部徽章由 [Shields.io](https://shields.io/) 生成。
 
 ## 🔗 友情链接
 
