@@ -1,6 +1,6 @@
 {
   "checkedAt": "2026-10-05",
-  "command": "python scripts/verify-wisdom-corpus.py --archive C:\\Users\\13370\\Documents\\Codex\\2026-10-05\\new-chat\\work\\pvz-original-source\\github.zip",
+  "command": "python scripts/verify-wisdom-corpus.py --archive ./asset-cache/github.zip",
   "result": "pass",
   "entries": 80,
   "distinctSourceKeys": 80,

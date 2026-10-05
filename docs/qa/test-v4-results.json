@@ -1,23 +1,9 @@
 {
   "date": "2026-10-05",
-  "project": "D:/智慧树",
   "build": { "backend": "passed", "frontend": "passed", "frontendModules": 96 },
   "tests": { "total": 45, "passed": 45, "failed": 0, "cancelled": 0, "skipped": 0, "durationMs": 11731.9634 },
   "log": "tests-v4-final.txt",
   "isolation": "All tests use independent databases; browser mutations used a separate QA preview.",
   "nativePostgresMultiConnectionRaceValidated": false,
-  "realPreviewUpgrade": {
-    "usersPreserved": 1,
-    "modelsPreserved": 4,
-    "existingReplyPoolsPreserved": true,
-    "treeAndBalancesPreserved": true,
-    "keyMetadataPreserved": true,
-    "ledgerAndUsagePreserved": true,
-    "wisdomReplyCount": 80,
-    "wisdomDefaultMatchesFirstReply": true,
-    "realModelIdsUnchanged": true,
-    "qaRulesNotInsertedIntoRealDatabase": true,
-    "backupBeforeMigration": ".local/backups/pre-v4-20261005",
-    "previewRunningAfterMigration": true
-  }
+  "wisdomReplyCount": 80
 }

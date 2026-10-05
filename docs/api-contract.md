@@ -4,7 +4,7 @@ All app JSON failures use `{error:{code,message}}`. Every mutation authenticates
 
 ## State
 GET `/api/me` returns `{user,tree,rules,daily,providers}`. Anonymous user and tree are null; rules and providers are always present.
-- user: `{id,username,displayName,role:'user'|'admin',status:'active'|'banned'|'deleted',coins,fertilizer}`.
+- user: `{id,username,displayName,role:'user'|'admin',status:'active'|'banned',coins,fertilizer}`. Deleted accounts are physically removed and never returned as users.
 - tree: `{seedClaimed:boolean,planted:boolean,height:number}`.
 - rules: `{dailyFertilizer,inventoryLimit,coinsPerFeed,growthPerFeed,apiRateLimit}` nonnegative integers; growth and rate >0.
 - daily: `{date,claimed,remaining}` (anonymous can be null). Asia/Shanghai date.
@@ -24,7 +24,7 @@ GET `/api/ledger?page=1&pageSize=20` -> `{items,total}` ledger items `{id,kind,c
 
 ## Admin
 
-All admin routes require an active administrator session. Mutations accept an optional `reason` string; omission, an empty string or whitespace uses the audit explanation `管理员操作`. An explicit reason must be a non-whitespace string of at most 500 JavaScript characters. Admin forms do not require this field. DELETE bodies may be omitted; any supplied body must be a JSON object. Audit actor/action/before/after values and adjustment ledgers are still recorded. The last active administrator cannot be demoted, banned or deleted.
+All admin routes require an active administrator session. Mutations generally accept an optional `reason` string; omission, an empty string or whitespace uses the audit explanation `管理员操作`. An explicit reason must be a non-whitespace string of at most 500 JavaScript characters. Admin forms do not require this field. User deletion and bulk user operations use the fixed explanation `管理员操作`; deletion history stores only anonymous counts. DELETE bodies may be omitted; any supplied body must be a JSON object. Audit actor/action/before/after values and adjustment ledgers are still recorded. The last active administrator cannot be demoted, banned or deleted.
 
 GET `/api/admin/stats` -> `{users,activeUsers,models,requests,coinsIssued,coinsSpent}`.
 
@@ -36,7 +36,13 @@ Secrets are stored as AES-256-GCM ciphertext under `API_KEY_ENCRYPTION_KEY` with
 
 Updates apply without restarting and invalidate outstanding authorization states for that provider. OAuth start/callback enforce availability server-side; disabled providers return 503 `provider_unavailable`. Each state records a configuration fingerprint. After provider network requests finish, the identity-acceptance transaction acquires a shared configuration lock and rechecks availability/fingerprint, preventing changed/disabled configurations from completing an old authorization. Network I/O holds no database lock. Disabled/changed providers do not delete existing identity bindings or revoke accepted login sessions.
 GET `/api/admin/users?search=&page=1&pageSize=20` -> `{items,total}`; each item extends the public user with `identities:[{provider,providerUserId,displayName,createdAt}]`. Identity metadata for the current page is fetched in a single batch; no identities are returned for unrelated users. POST `{username,password,displayName?,role?,reason?}` creates local user.
-GET `/api/admin/users/:id` -> `{user,tree,identities,keys,usage,ledger}`. Identities have the same four-field metadata shape as the listing; third-party access tokens and Client Secrets are never stored in or returned as identity metadata. PATCH `{username?,displayName?,role?,status?,reason?}`. DELETE with optional `{reason?}` soft-deletes.
+GET `/api/admin/users/:id` -> `{user,tree,identities,keys,usage,ledger}`. Identities have the same four-field metadata shape as the listing; third-party access tokens and Client Secrets are never stored in or returned as identity metadata. PATCH `{username?,displayName?,role?,status?,reason?}` updates an account; normal statuses are `active` and `banned`. For compatibility, PATCH with `status:'deleted'` performs the same permanent deletion as DELETE.
+
+DELETE `/api/admin/users/:id` with optional `{reason?}` permanently removes the user and associated tree, balance, fertilizer, sessions, identities, pending OAuth bindings, daily claims, ledger, game actions, API keys, API request snapshots and reply cursors. The response is `{ok:true,action:'delete',affected:1,ids:[id]}`. The account no longer appears in listings, detail reads return 404, and its former username and external identity IDs become available for a new account. Global models and website settings remain. System audit and update records retain only anonymized operator information. Deletion cannot be undone through the product; restoration requires an appropriate database backup.
+
+POST `/api/admin/users/batch` accepts `{ids:string[],action:'ban'|'unban'|'delete'}` and returns `{ok:true,action,affected:number,ids:string[]}`. Supply 1–100 valid UUIDs; duplicate IDs are counted once. It uses one transaction for the entire batch: a missing user returns 404 and changes nobody; attempting to remove all effective administrators returns 409 `last_admin` and changes nobody. Ban immediately invalidates sessions and pending OAuth bindings and blocks new logins/API calls; unban allows new logins without restoring old sessions. Delete applies the permanent-deletion behavior above to every selected user. The admin table's select-all control selects the current page only, and searching or changing pages clears the selection. An administrator may ban/delete their own account only if another effective administrator remains; the client then clears its login state.
+
+Migration 011 removes historical soft-deleted accounts and their associated data. No newly deleted account is retained as a `users` row with `status:'deleted'`.
 POST `/api/admin/users/:id/password` `{password,reason?}` resets and invalidates sessions. POST `/api/admin/users/:id/adjust` `{coinsDelta?,fertilizerDelta?,reason?}` requires at least one nonzero adjustment.
 
 GET `/api/admin/models` -> `{items,defaultReplyText}` including disabled, excluding deleted. `defaultReplyText` is the public seed text for the new-model form. Each admin model is `{id,displayName,coinsPerCall,enabled,isWisdomTree,replyText,streamChunkChars,streamDelayMs,replyCount,ruleCount}`. Counts include all live numbered replies and all input rules, including disabled rules. `isWisdomTree` is a server-maintained identity marker, not an editable request field.
@@ -54,7 +60,7 @@ POST `/api/admin/models/:id/rules` `{position,input,text,enabled?,reason?}` -> `
 Example rule create body: `{"position":1,"input":"你好","text":"你好","enabled":true}`. No operation reason is needed.
 
 GET `/api/admin/settings` -> rules; PATCH same rule keys plus optional `{reason?}` returns rules.
-GET `/api/admin/audit?page=1&pageSize=20` -> `{items,total}` items `{id,actorId,actorName,action,targetId,reason,before,after,createdAt}`.
+GET `/api/admin/audit?page=1&pageSize=20` -> `{items,total}` items `{id,actorId,actorName,action,targetId,reason,before,after,createdAt}`. `actorId` is null for an erased administrator; user-targeted history is anonymized when that user is erased.
 GET `/api/admin/usage?page=1&pageSize=20&userId=&modelId=` -> `{items,total}` including username.
 
 ## Simulator

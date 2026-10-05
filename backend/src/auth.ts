@@ -91,7 +91,7 @@ export async function registerAuth(app: FastifyInstance, services: Services) {
     if (!['github', 'linuxdo'].includes(provider)) fail(404, 'not_found', '登录方式不存在。');
     await transaction(services.pool, async db => {
       const locked = (await db.query<UserRow>('SELECT * FROM users WHERE id=$1 FOR UPDATE', [user.id])).rows[0];
-      if (locked.status !== 'active') fail(401, 'unauthorized', '账号已停用。');
+      if (!locked || locked.status !== 'active') fail(401, 'unauthorized', '账号已停用。');
       const identities = (await db.query('SELECT id,provider FROM identities WHERE user_id=$1', [user.id])).rows;
       if (!identities.some(row => row.provider === provider)) fail(404, 'not_found', '此登录方式尚未绑定。');
       if (!locked.password_hash && identities.length <= 1) fail(409, 'last_login_method', '请先设置另一种登录方式。');
@@ -115,6 +115,12 @@ export async function registerAuth(app: FastifyInstance, services: Services) {
     const settings = await transaction(services.pool, async db => {
       const current = await services.oauth.get(provider, db, true, false);
       if (!current.available) fail(503, 'provider_unavailable', '此登录方式未开启或尚未配置。');
+      if (user) {
+        const locked = (await db.query<UserRow>('SELECT * FROM users WHERE id=$1 FOR UPDATE', [user.id])).rows[0];
+        if (!locked || locked.status !== 'active' || !(await db.query('SELECT token_hash FROM sessions WHERE token_hash=$1 AND user_id=$2 AND expires_at>now()', [hash(request.cookies[SESSION_COOKIE] || ''), user.id])).rows.length) {
+          fail(401, 'unauthorized', '登录状态已失效。');
+        }
+      }
       await db.query('INSERT INTO oauth_states(state_hash,provider,bind_user_id,session_hash,verifier,expires_at,config_fingerprint) VALUES($1,$2,$3,$4,$5,$6,$7)', [hash(state), provider, user?.id || null, bind ? hash(request.cookies[SESSION_COOKIE]!) : null, verifier, new Date(Date.now() + 600000), current.fingerprint]);
       return current;
     });

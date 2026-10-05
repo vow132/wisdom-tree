@@ -34,8 +34,8 @@ python scripts/verify-assets.py
 导入脚本将固定提交的 ZIP 缓存到 `.local/asset-source/github.zip`，下载后验证完整 ZIP 的 SHA-256。已有本地 ZIP 可以指定缓存目录；目录中 ZIP 的名称必须为 `github.zip`：
 
 ```powershell
-python scripts/import-assets.py --cache D:\素材缓存
-python scripts/verify-assets.py --archive D:\素材缓存\github.zip --report docs/qa/asset-checks.json
+python scripts/import-assets.py --cache ./asset-cache
+python scripts/verify-assets.py --archive ./asset-cache/github.zip --report docs/qa/asset-checks.json
 ```
 
 不指定 `--archive` 的验证全程离线，检查全部图片、尺寸、别名、动画引用、成长段、云段及原始 reanim 摘要。指定源 ZIP 后，会再验证 107 个源文件摘要，并对 75 张转换图片逐像素比对，包括合成空花盆。目录不存在、图片缺失、alpha 尺寸不符、引用无法解析或 ZIP 摘要变化时，脚本会失败，不会悄悄使用占位图。

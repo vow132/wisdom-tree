@@ -15,7 +15,7 @@ export async function registerGame(app: FastifyInstance, services: Services) {
       const key = idempotencyKey(request.headers['idempotency-key'], true)!;
       return transaction(services.pool, async db => {
         const user = (await db.query<UserRow>('SELECT * FROM users WHERE id=$1 FOR UPDATE', [sessionUser.id])).rows[0];
-        if (user.status !== 'active') fail(401, 'unauthorized', '账号已停用。');
+        if (!user || user.status !== 'active') fail(401, 'unauthorized', '账号已停用。');
         const previous = (await db.query('SELECT result FROM game_actions WHERE user_id=$1 AND endpoint=$2 AND idem_key=$3', [user.id, endpoint, key])).rows[0];
         if (previous) return previous.result;
         const tree = (await db.query('SELECT * FROM trees WHERE user_id=$1 FOR UPDATE', [user.id])).rows[0];
@@ -87,7 +87,7 @@ export async function registerGame(app: FastifyInstance, services: Services) {
     const key = `sk_${randomToken()}`; const id = randomUUID();
     return transaction(services.pool, async db => {
       const locked = (await db.query<UserRow>('SELECT * FROM users WHERE id=$1 FOR UPDATE', [user.id])).rows[0];
-      if (locked.status !== 'active') fail(401, 'unauthorized', '账号已停用。');
+      if (!locked || locked.status !== 'active') fail(401, 'unauthorized', '账号已停用。');
       if (Number((await db.query('SELECT count(*) AS count FROM api_keys WHERE user_id=$1 AND revoked_at IS NULL', [user.id])).rows[0].count) >= 20) fail(409, 'key_limit', '最多保留 20 个有效 API Key。');
       const encrypted = encryptApiKey(key, services.config.apiKeyEncryptionKey, user.id, id);
       const row = (await db.query('INSERT INTO api_keys(id,user_id,name,prefix,key_hash,key_ciphertext) VALUES($1,$2,$3,$4,$5,$6) RETURNING *', [id, user.id, name, key.slice(0, 11), hash(key), encrypted])).rows[0];

@@ -160,6 +160,60 @@ test('PostgreSQL 17 migration, row locking, billing and SDK integration', { time
       assert.equal((await request(null, 'GET', '/v1/models', undefined, apiHeaders())).statusCode, 401);
       assert.equal((await request(userJar, 'POST', '/api/auth/login', { username: 'ci_gardener', password })).statusCode, 401);
     });
+    await t.test('atomic batches ban, unban and permanently erase user-owned data on PostgreSQL', async () => {
+      const fixtureJar: Jar = new Map();
+      const fixture = (await ok(fixtureJar, 'POST', '/api/auth/register', { username: 'ci_delete_fixture', password })).user;
+      for (const name of ['seed', 'plant', 'claim-fertilizer', 'feed']) {
+        await ok(fixtureJar, 'POST', '/api/tree/' + name, {}, { 'Idempotency-Key': randomUUID() });
+      }
+      const fixtureKey = await ok(fixtureJar, 'POST', '/api/keys', { name: 'Disposable batch fixture' });
+      await ok(null, 'POST', '/v1/responses', { model: 'wisdom-tree', input: 'fixture' }, { authorization: 'Bearer ' + fixtureKey.key });
+      await pool.query('INSERT INTO identities(id,user_id,provider,provider_user_id,display_name) VALUES($1,$2,$3,$4,$5)', [randomUUID(), fixture.id, 'github', 'ci-disposable-binding', 'Disposable fixture']);
+
+      const missing = await request(adminJar, 'POST', '/api/admin/users/batch', { ids: [fixture.id, randomUUID()], action: 'ban' });
+      assert.equal(missing.statusCode, 404);
+      assert.equal((await ok(fixtureJar, 'GET', '/api/me')).user.status, 'active');
+      const last = await request(adminJar, 'POST', '/api/admin/users/batch', { ids: [fixture.id, adminId], action: 'delete' });
+      assert.equal(last.statusCode, 409);
+      assert.equal((await ok(fixtureJar, 'GET', '/api/me')).user.id, fixture.id);
+
+      const banned = await ok(adminJar, 'POST', '/api/admin/users/batch', { ids: [fixture.id, fixture.id], action: 'ban' });
+      assert.equal(banned.affected, 1);
+      assert.equal((await ok(fixtureJar, 'GET', '/api/me')).user, null);
+      assert.equal((await request(null, 'GET', '/v1/models', undefined, { authorization: 'Bearer ' + fixtureKey.key })).statusCode, 401);
+      await ok(adminJar, 'POST', '/api/admin/users/batch', { ids: [fixture.id], action: 'unban' });
+      assert.equal((await ok(fixtureJar, 'GET', '/api/me')).user, null);
+      await ok(fixtureJar, 'POST', '/api/auth/login', { username: fixture.username, password });
+
+      const erased = await ok(adminJar, 'POST', '/api/admin/users/batch', { ids: [fixture.id], action: 'delete' });
+      assert.equal(erased.affected, 1);
+      assert.equal((await request(adminJar, 'GET', '/api/admin/users/' + fixture.id)).statusCode, 404);
+      for (const table of ['trees', 'sessions', 'identities', 'daily_claims', 'ledger', 'game_actions', 'api_keys', 'api_requests', 'model_reply_cursors']) {
+        assert.equal((await pool.query(`SELECT count(*)::integer AS count FROM ${table} WHERE user_id=$1`, [fixture.id])).rows[0].count, 0, table);
+      }
+      assert.equal((await pool.query('SELECT count(*)::integer AS count FROM users WHERE id=$1', [fixture.id])).rows[0].count, 0);
+      assert.equal((await pool.query("SELECT count(*)::integer AS count FROM models WHERE id='wisdom-tree'")).rows[0].count, 1);
+      const freshJar: Jar = new Map();
+      await ok(freshJar, 'POST', '/api/auth/register', { username: fixture.username, password });
+    });
+    await t.test('concurrent administrator self-deletion leaves one effective administrator', async () => {
+      const leftJar: Jar = new Map();
+      const rightJar: Jar = new Map();
+      const left = (await ok(adminJar, 'POST', '/api/admin/users', { username: 'ci_admin_left', password, role: 'admin' })).user;
+      const right = (await ok(adminJar, 'POST', '/api/admin/users', { username: 'ci_admin_right', password, role: 'admin' })).user;
+      await ok(leftJar, 'POST', '/api/auth/login', { username: left.username, password });
+      await ok(rightJar, 'POST', '/api/auth/login', { username: right.username, password });
+      await ok(adminJar, 'PATCH', '/api/admin/users/' + adminId, { role: 'user' });
+      const results = await Promise.all([
+        request(leftJar, 'POST', '/api/admin/users/batch', { ids: [left.id], action: 'delete' }),
+        request(rightJar, 'POST', '/api/admin/users/batch', { ids: [right.id], action: 'delete' }),
+      ]);
+      assert.deepEqual(results.map(result => result.statusCode).sort(), [200, 409]);
+      assert.equal((await pool.query("SELECT count(*)::integer AS count FROM users WHERE role='admin' AND status='active'")).rows[0].count, 1);
+      const survivorJar = results[0].statusCode === 409 ? leftJar : rightJar;
+      await ok(survivorJar, 'PATCH', '/api/admin/users/' + adminId, { role: 'admin' });
+      await ok(adminJar, 'POST', '/api/auth/login', { username: 'ci_admin', password });
+    });
   } finally {
     await app.close().catch(() => undefined);
     await database.end();

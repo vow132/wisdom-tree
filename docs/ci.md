@@ -6,7 +6,7 @@
 
 - Ubuntu 24.04、Node.js 24，通过根目录 `package-lock.json` 执行 `npm ci`，缓存 npm 下载目录。
 - 两个工作区的 TypeScript 检查、完整应用测试与兼容 SDK 测试、生产构建。
-- 独立 PostgreSQL 17 服务上的真实事务验收：全新迁移与重复迁移、管理员初始化与登录、并发领取和施肥、加密密钥、余额不足并发、幂等重放、三种 SDK 协议的普通与流式回复、模型 ID 级联修改、封禁及最后管理员保护。
+- 独立 PostgreSQL 17 服务上的真实事务验收：全新迁移与重复迁移、管理员初始化与登录、并发领取和施肥、加密密钥、余额不足并发、幂等重放、三种 SDK 协议的普通与流式回复、模型 ID 级联修改、批量封禁／解封／永久删除、关联数据级联清理、批量失败回滚及并发管理员自删保护。
 - API 和 Web 两个生产 Dockerfile 分别构建，构建在 GitHub runner 上进行。
 
 `scripts/ci-postgres.ts` 只接受显式的 `CI_DATABASE_URL`。它创建随机 `ci_…` schema，所有测试连接的 `search_path` 仅指向该 schema，结束后清理该 schema，不修改 public schema。请使用临时测试数据库；测试账号、余额及密钥都是一次性数据。PostgreSQL 服务中的密码是公开的 CI 临时值，不是生产密码。

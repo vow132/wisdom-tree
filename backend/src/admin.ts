@@ -21,6 +21,44 @@ export async function registerAdmin(app: FastifyInstance, services: Services) {
       if (Number((await db.query('SELECT count(*) AS count FROM users WHERE role=\'admin\' AND status=\'active\'')).rows[0].count) <= 1) fail(409, 'last_admin', '至少需要保留一位有效管理员。');
     }
   }
+  type UserAction = 'ban' | 'unban' | 'delete';
+  async function revokeUserSessions(db: ClientLike, ids: string[]) {
+    await db.query(`DELETE FROM oauth_states WHERE bind_user_id=ANY($1::uuid[])
+      OR session_hash IN (SELECT token_hash FROM sessions WHERE user_id=ANY($1::uuid[]))`, [ids]);
+    await db.query('DELETE FROM sessions WHERE user_id=ANY($1::uuid[])', [ids]);
+  }
+  async function operateUsers(db: ClientLike, actor: UserRow, ids: string[], action: UserAction, batch: boolean) {
+    // admin_guard is held before taking account locks in a stable order. This
+    // protects the complete selection, including two administrators acting at once.
+    const users = (await db.query<UserRow>('SELECT * FROM users WHERE id=ANY($1::uuid[]) AND status<>\'deleted\' ORDER BY id FOR UPDATE', [ids])).rows;
+    if (users.length !== ids.length) fail(404, 'not_found', '所选用户不存在，请刷新列表后重试。');
+    if (action !== 'unban') {
+      const removingAdmins = users.filter(user => user.role === 'admin' && user.status === 'active').length;
+      if (removingAdmins && Number((await db.query('SELECT count(*) AS count FROM users WHERE role=\'admin\' AND status=\'active\'')).rows[0].count) <= removingAdmins) {
+        fail(409, 'last_admin', '至少需要保留一位有效管理员。');
+      }
+      await revokeUserSessions(db, ids);
+    }
+    if (action === 'delete') {
+      // Keep administrative history without retaining erased account profiles.
+      await db.query(`UPDATE audit SET target_id='deleted-user',reason='已删除用户的操作记录',before_value=NULL,after_value=NULL
+        WHERE lower(target_id)=ANY($1::text[])`, [ids]);
+      await services.audit(db, actor, batch ? 'user.batch.delete' : 'user.delete', 'users', '管理员操作', null, { deleted: ids.length });
+      await db.query('UPDATE audit SET actor_id=NULL,actor_name=\'已删除管理员\' WHERE actor_id=ANY($1::uuid[])', [ids]);
+      // The user-owned tables are covered by migration 011's cascading FKs;
+      // global models, settings, audit and update jobs remain independent.
+      await db.query('DELETE FROM users WHERE id=ANY($1::uuid[])', [ids]);
+    } else {
+      const updated = (await db.query<UserRow>('UPDATE users SET status=$2,updated_at=now() WHERE id=ANY($1::uuid[]) RETURNING *', [ids, action === 'ban' ? 'banned' : 'active'])).rows;
+      const byId = new Map(updated.map(user => [user.id, user]));
+      // Keep each status change attributable and scrub-able by account deletion.
+      // A global multi-user snapshot would retain profiles after one is erased.
+      for (const user of users) {
+        await services.audit(db, actor, batch ? `user.batch.${action}` : `user.${action}`, user.id, '管理员操作', publicUser(user), publicUser(byId.get(user.id)!));
+      }
+    }
+    return { ok: true, action, affected: ids.length, ids };
+  }
   const adminBody = (value: unknown) => value === undefined ? {} : record(value);
   const reason = (body: any) => body.reason === undefined || (typeof body.reason === 'string' && !body.reason.trim()) ? '管理员操作' : text(body.reason, '操作原因', 500);
   function validateReply(value: unknown, chunkChars: number, delayMs: number) {
@@ -63,8 +101,8 @@ export async function registerAdmin(app: FastifyInstance, services: Services) {
     await services.requireAdmin(request); const query = request.query as any; const { pageSize, offset } = pagination(query);
     const search = typeof query.search === 'string' ? query.search.slice(0, 100) : '';
     const pattern = `%${search}%`;
-    const rows = (await services.pool.query<UserRow>('SELECT * FROM users WHERE username ILIKE $1 OR display_name ILIKE $1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3', [pattern, pageSize, offset])).rows;
-    const total = Number((await services.pool.query('SELECT count(*) AS total FROM users WHERE username ILIKE $1 OR display_name ILIKE $1', [pattern])).rows[0].total);
+    const rows = (await services.pool.query<UserRow>('SELECT * FROM users WHERE status<>\'deleted\' AND (username ILIKE $1 OR display_name ILIKE $1) ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3', [pattern, pageSize, offset])).rows;
+    const total = Number((await services.pool.query('SELECT count(*) AS total FROM users WHERE status<>\'deleted\' AND (username ILIKE $1 OR display_name ILIKE $1)', [pattern])).rows[0].total);
     const identities = rows.length ? (await services.pool.query('SELECT user_id,provider,provider_user_id,display_name,created_at FROM identities WHERE user_id=ANY($1::uuid[]) ORDER BY provider', [rows.map(row => row.id)])).rows : [];
     const byUser = new Map<string, ReturnType<typeof publicIdentity>[]>();
     for (const identity of identities) {
@@ -85,9 +123,16 @@ export async function registerAdmin(app: FastifyInstance, services: Services) {
       return { user: publicUser(user) };
     });
   });
+  app.post('/api/admin/users/batch', async request => {
+    const actor = await services.requireAdmin(request); const body = adminBody(request.body);
+    if (!Array.isArray(body.ids) || body.ids.length < 1 || body.ids.length > 100) fail(400, 'invalid_request', '请选择 1–100 位用户。');
+    const ids = [...new Set<string>(body.ids.map((id: unknown) => uuid(id).toLowerCase()))].sort();
+    if (!['ban', 'unban', 'delete'].includes(body.action)) fail(400, 'invalid_request', '批量操作无效。');
+    return adminTransaction(actor, db => operateUsers(db, actor, ids, body.action, true));
+  });
   app.get('/api/admin/users/:id', async request => {
     await services.requireAdmin(request); const id = uuid((request.params as any).id);
-    const user = (await services.pool.query<UserRow>('SELECT * FROM users WHERE id=$1', [id])).rows[0];
+    const user = (await services.pool.query<UserRow>('SELECT * FROM users WHERE id=$1 AND status<>\'deleted\'', [id])).rows[0];
     if (!user) fail(404, 'not_found', '用户不存在。');
     const tree = (await services.pool.query('SELECT * FROM trees WHERE user_id=$1', [id])).rows[0];
     const identities = (await services.pool.query('SELECT provider,provider_user_id,display_name,created_at FROM identities WHERE user_id=$1 ORDER BY provider', [id])).rows.map(publicIdentity);
@@ -99,17 +144,17 @@ export async function registerAdmin(app: FastifyInstance, services: Services) {
   async function updateUser(request: FastifyRequest, deleting = false) {
     const actor = await services.requireAdmin(request); const id = uuid((request.params as any).id); const body = adminBody(request.body); const explanation = reason(body);
     return adminTransaction(actor, async db => {
-      const user = (await db.query<UserRow>('SELECT * FROM users WHERE id=$1 FOR UPDATE', [id])).rows[0];
+      if (deleting || body.status === 'deleted') return operateUsers(db, actor, [id.toLowerCase()], 'delete', false);
+      const user = (await db.query<UserRow>('SELECT * FROM users WHERE id=$1 AND status<>\'deleted\' FOR UPDATE', [id])).rows[0];
       if (!user) fail(404, 'not_found', '用户不存在。');
       const account = body.username === undefined ? user.username : username(body.username);
       const displayName = body.displayName === undefined ? user.display_name : text(body.displayName, '昵称', 64);
-      const role = body.role === undefined ? user.role : body.role; const status = deleting ? 'deleted' : (body.status === undefined ? user.status : body.status);
-      if (!['user', 'admin'].includes(role) || !['active', 'banned', 'deleted'].includes(status)) fail(400, 'invalid_request', '角色或用户状态无效。');
+      const role = body.role === undefined ? user.role : body.role; const status = body.status === undefined ? user.status : body.status;
+      if (!['user', 'admin'].includes(role) || !['active', 'banned'].includes(status)) fail(400, 'invalid_request', '角色或用户状态无效。');
       await protectLastAdmin(db, user, role, status);
       const updated = (await db.query<UserRow>('UPDATE users SET username=$2,display_name=$3,role=$4,status=$5,updated_at=now() WHERE id=$1 RETURNING *', [id, account, displayName, role, status])).rows[0];
-      if (status !== 'active' || role !== user.role) await db.query('DELETE FROM sessions WHERE user_id=$1', [id]);
-      if (status === 'deleted') await db.query('UPDATE api_keys SET revoked_at=COALESCE(revoked_at,now()),key_ciphertext=NULL WHERE user_id=$1', [id]);
-      await services.audit(db, actor, deleting ? 'user.delete' : 'user.update', id, explanation, publicUser(user), publicUser(updated));
+      if (status !== 'active' || role !== user.role) await revokeUserSessions(db, [id]);
+      await services.audit(db, actor, 'user.update', id, explanation, publicUser(user), publicUser(updated));
       return { user: publicUser(updated) };
     });
   }

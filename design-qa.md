@@ -14,7 +14,7 @@
 - 最新版本按原资源 31 帧／20 FPS 完成倒肥约 1.55 秒，之后按 8 FPS 播放成长；隐藏页面暂停，减少动态效果模式也保持先施肥后长高顺序。讲话与拖放不采用选中肥料的旧模式。
 - 浅色、深色、随系统三种主题均有持久化；系统媒体变化与跨页存储变化通过事件更新，不请求服务器。后台编号回复的新增、查询和修改经过真实浏览器验证，删除、越权和幂等由集成测试验证。
 - 1280px、390px 与 320px 视口通过；320px 时可用宽度含滚动条仅 305px，已修正页面最小宽度导致的横向溢出。长对白在场景下方完整展示。
-- v4：实际预览数据库原有 80 条智慧树回复完整，旧默认文本造成编辑窗口误解；新窗口明确显示回复数量和入口，005 迁移仅修正未自定义的旧默认文本，不重新覆盖回复库。
+- v4：新版编辑窗口明确显示智慧树回复数量和入口，005 迁移仅修正未自定义的旧默认文本，不重新覆盖回复库。
 - v4：隔离浏览器数据库验证智慧树模型改 ID 后保留 80 条回复，新增“你好 → 你好”输入规则并通过 Vite 反代实际调用命中；全部操作原因输入移除，后台审计仍保留。太阳／月亮图标与用户参考一致，1280px 桌面和 390px 手机布局通过，手机无横向溢出。
 - v5：后台“第三方登录”独立配置 GitHub／Linux Do 的开关、Client ID、只写 Client Secret 和回调地址。真实浏览器验证保存后立即更新状态、Secret 输入清空；登录页面关闭隐藏、开启显示、单独关闭 GitHub 只留 Linux Do。1280px 桌面与 390px 手机无页面横向溢出，已有视觉风格保持。
 - v6：深色月亮使用透明底色和柔和灰绿线条，缩为 22px、1.7px 描边，保留 44px 点击区域。展开／悬停时显示浅绿背景，键盘焦点保留 2px 轮廓。真实浏览器验证 1280px 桌面、390px 手机无横向溢出；菜单展开和 Escape 关闭通过。前端生产构建与 7 项主题组件测试通过；主题切换仍只使用本地状态和事件。
@@ -22,15 +22,15 @@
 
 ## 对照文件
 
-展示密钥的历史截图仅保留在本地交付目录，已排除 Git 提交。
+展示真实密钥的截图不作为公开核验材料。
 
 - `docs/qa/source-vs-browser-100.png`：原版 PC 实机与实际浏览器 100 英尺画面。
 - `docs/qa/desktop-empty.jpg`、`desktop-young.jpg`、`desktop-grown.jpg`：空盆、幼树、成熟树。
 - `docs/qa/mobile-young.jpg`：手机施肥。
 - `docs/qa/feeding.jpg`：原版肥料动画与新增金币反馈。
-- `docs/qa/admin-models.jpg`、`api-console.jpg`：后台与 API 面板。
-- `docs/qa/desktop-v2.jpg`、`mobile-v2.jpg`、`api-keys-v2.jpg`：本轮改版后的界面；上述旧截图为前一轮验收记录。
-- `docs/qa/desktop-v3-light.jpg`、`mobile-v3-dark.jpg`、`admin-replies-v3-desktop.jpg`、`admin-replies-v3-mobile.jpg`、`api-keys-v3-mobile.jpg`：v3 主题与回复管理历史记录；后台截图中的第 81 条只存在于隔离测试数据库，正式初始导入 80 条。
+- `docs/qa/admin-models.jpg`：后台模型管理。
+- `docs/qa/desktop-v2.jpg`、`mobile-v2.jpg`：改版后的界面；上述旧截图为前一轮验收记录。
+- `docs/qa/desktop-v3-light.jpg`、`mobile-v3-dark.jpg`、`admin-replies-v3-desktop.jpg`、`admin-replies-v3-mobile.jpg`：v3 主题与回复管理历史记录；后台截图中的第 81 条只存在于隔离测试数据库，正式初始导入 80 条。
 - `docs/qa/model-edit-v4.png`、`model-rules-v4-desktop.jpg`、`model-rules-v4-mobile.jpg`：最新导入数量提示、可编辑模型 ID、输入匹配、免填原因与主题图标。截图中的改名与“你好”规则只用于隔离 QA 数据库。
 - `docs/qa/oauth-admin-v5-desktop.jpg`、`oauth-admin-v5-mobile.jpg`、`login-disabled-v5.jpg`、`login-enabled-v5-mobile.jpg`、`login-linuxdo-only-v5-mobile.jpg`：第三方登录设置及隐藏行为。配置值是隔离 QA 占位凭证，不是真实平台应用。
 - `docs/qa/theme-header-v6.jpg`、`theme-v6-desktop.jpg`、`theme-v6-mobile.jpg`：深色图标适配及桌面、手机效果；截图使用隔离 QA 账户。

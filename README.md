@@ -17,7 +17,7 @@
   <a href="https://docs.docker.com/compose/"><img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&amp;logo=docker&amp;logoColor=white" alt="Docker Compose"></a>
 </p>
 
-<p><a href="https://ai.91i.asia">在线体验</a> · <a href="#快速开始">快速开始</a> · <a href="docs/deployment.md">部署指南</a> · <a href="docs/agent-integration.md">Agent 接入</a> · <a href="#文档导航">全部文档</a></p>
+<p><a href="https://ai.91i.asia">在线体验</a> · <a href="#docker-部署">快速部署</a> · <a href="docs/deployment.md">部署指南</a> · <a href="docs/agent-integration.md">Agent 接入</a> · <a href="#文档导航">全部文档</a></p>
 
 </div>
 
@@ -37,7 +37,7 @@
 | 💬 可配置的回复 | 设置“你好 → 你好”的指定回复；未匹配时轮换编号回复，空库时使用默认文本；可调整流式速度 |
 | 🔌 SDK / Agent 接入 | 使用 OpenAI Chat Completions、Completions、Responses 或 Anthropic Messages；支持普通与流式回复 |
 | 🔑 账户与密钥 | 账号密码、GitHub、Linux DO 登录与主动绑定；自己的 `sk_` 密钥可随时查看、复制或撤销 |
-| 🛠️ 管理后台 | 管理用户、角色、金币、肥料、模型 ID 与价格；查看第三方绑定，保留账本与审计，保护最后一位有效管理员 |
+| 🛠️ 管理后台 | 管理用户、角色、金币、肥料、模型 ID 与价格；查看第三方绑定，支持封禁、解封、当前页全选与批量操作，保护最后一位有效管理员 |
 | 🎨 网站设置 | 修改名称、浏览器标题、花园与页脚文案，上传 Logo、图标和背景；在同一页面配置网站更新 |
 | 📦 部署与运维 | Docker Compose + PostgreSQL + Caddy HTTPS；GitHub Actions 测试与发布；配套数据库、配置和图片备份 |
 
@@ -55,7 +55,7 @@
 | 用户管理 | 网站设置 |
 | :---: | :---: |
 | [![用户管理：演示用户与第三方绑定信息](docs/screenshots/admin-users.jpg)](docs/screenshots/admin-users.jpg) | [![网站设置：网站名称、标题与文案](docs/screenshots/site-overview.jpg)](docs/screenshots/site-settings.jpg) |
-| 查看绑定身份，管理账户、权限与余额 | 修改文案与图片，配置 GitHub 网站更新 |
+| 查看绑定身份，多选后批量封禁、解封或彻底删除 | 修改文案与图片，配置 GitHub 网站更新 |
 
 <details>
 <summary>🌲 看看长到 100 英尺的智慧树</summary>
@@ -76,52 +76,13 @@
 
 初始智慧树有 **80 条**中文玩法事实摘要与原创闲聊，后台可编辑。它们不是原版逐字台词或官方中文翻译，完整来源与索引见 [智慧树语料](docs/wisdom-corpus.md)。管理员修改规则后，后续操作使用新设置。
 
-## 快速开始
-
-需要 **Node.js ≥ 22**，推荐 Node.js 24。原版场景图像与转换后的动画已包含在仓库中。
-
-```bash
-git clone https://github.com/vow132/wisdom-tree.git
-cd wisdom-tree
-npm ci
-npm run dev:preview
-```
-
-打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，注册账号后即可开始养树。Windows 也可双击项目根目录的 `启动预览.cmd`。
-
-本机预览使用 PGlite 的 PostgreSQL 内核，无需另外安装数据库；数据保存在 `.local/preview-db`。生产部署使用独立 PostgreSQL 服务。
-
-<details>
-<summary>🔐 初始化本机管理员（PowerShell）</summary>
-
-先停止正在运行的预览，在项目根目录运行以下命令。密码在终端中隐藏输入：
-
-```powershell
-$env:DATABASE_MODE = "embedded"
-$env:PGLITE_PATH = Join-Path (Get-Location) ".local\preview-db"
-$env:ADMIN_USERNAME = "admin"
-$adminSecret = Read-Host "设置管理员密码（至少8位）" -AsSecureString
-$adminSecretHandle = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($adminSecret)
-try {
-  $env:ADMIN_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($adminSecretHandle)
-  npm run admin:create
-} finally {
-  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($adminSecretHandle)
-  Remove-Item Env:ADMIN_PASSWORD -ErrorAction SilentlyContinue
-  $adminSecret.Dispose()
-}
-npm run dev:preview
-```
-
-登录后进入 `/admin`。初始化命令不会把已经存在的普通账号自动升级为管理员。
-
-</details>
-
 ## Docker 部署
 
 Linux 服务器准备 Docker Engine 和 Compose 插件，将域名解析到服务器，开放 80 / 443 端口。
 
 ```bash
+git clone https://github.com/vow132/wisdom-tree.git
+cd wisdom-tree
 cp .env.example .env
 # 填好 .env 中的必填项后启动
 docker compose up -d --build
@@ -140,7 +101,7 @@ Caddy 自动申请 HTTPS 证书，启动时自动执行数据库迁移。数据�
 
 **小服务器建议使用 CI 构建的镜像。** GitHub Actions 先测试，再构建发布、验证完整 Docker 栈，最后通过 SSH 部署；服务器无需编译项目。独立部署所需的仓库变量、Secrets 和回滚流程见 [CI/CD 部署指南](docs/deployment.md)。
 
-备份用 `bash scripts/backup.sh`。同一份数据库 `.dump`、配置 `.env` 和图片 `.uploads.tar.gz` 必须一起保管，恢复时保留原 `API_KEY_ENCRYPTION_KEY`。恢复命令与图片处理见 [备份恢复](docs/site-assets-backup.md)。本机备份同时保留 `.local/preview-db`、`.local/api-key-encryption.key` 和 `.local/site-assets`。
+备份用 `bash scripts/backup.sh`。同一份数据库 `.dump`、配置 `.env` 和图片 `.uploads.tar.gz` 必须一起保管，恢复时保留原 `API_KEY_ENCRYPTION_KEY`。恢复命令与图片处理见 [备份恢复](docs/site-assets-backup.md)。
 
 ## 登录与网站配置
 
@@ -154,6 +115,8 @@ Caddy 自动申请 HTTPS 证书，启动时自动执行数据库迁移。数据�
 | 养成与 API 规则 | 每日肥料、库存上限、施肥奖励、成长增量与接口限流 |
 
 第三方登录默认采用平台昵称；已有账户可以主动绑定身份，共享同一棵树和金币。系统不按同名或邮箱自动合并账户，后台用户列表会显示绑定的平台、昵称和第三方 ID。OAuth Secret 和更新 Token 加密保存，后台不回显。
+
+用户列表支持单选、多选和**当前页全选**，可一次封禁、解封或彻底删除选中账户。搜索或翻页会清空选择。封禁立即使登录会话失效并阻止 API 调用；解封后需重新登录。删除会移除账户、智慧树、金币、肥料、第三方绑定、密钥、调用记录及账本，不能在后台恢复。批量请求在一个事务中处理，整批成功或整批回滚；升级也会清理历史软删除用户。模型仍采用软删除以保留模型历史。
 
 图片支持不超过 **2 MB** 的静态 PNG、JPEG、WebP，选择后先预览，上传后保存。文案与图片保存成功后直接更新当前页面；网站配置与更新状态均不轮询。详见 [第三方登录](docs/oauth-login.md)、[网站设置](docs/site-settings.md) 和 [网站更新](docs/website-updates.md)。
 

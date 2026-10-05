@@ -322,6 +322,10 @@ test('conditional model replies, editable IDs and reason-free admin integration'
       await ok(adminJar, 'PATCH', `/api/admin/users/${item.id}`, { displayName: '直接编辑', reason: '' });
       await ok(adminJar, 'POST', `/api/admin/users/${item.id}/password`, { password: 'Disposable-changed-password-2026' });
       await ok(adminJar, 'POST', `/api/admin/users/${item.id}/adjust`, { coinsDelta: 7, fertilizerDelta: 2 });
+      const ledger = (await pool.query("SELECT reason,coins_delta,fertilizer_delta FROM ledger WHERE user_id=$1 AND kind='admin_adjustment'", [item.id])).rows[0];
+      assert.equal(Number(ledger.coins_delta), 7);
+      assert.equal(ledger.fertilizer_delta, 2);
+      assert.ok(ledger.reason.trim());
       await ok(adminJar, 'PATCH', `/api/admin/users/${item.id}`, { status: 'banned' });
       await ok(adminJar, 'PATCH', `/api/admin/users/${item.id}`, { status: 'active', reason: '  ' });
       await ok(adminJar, 'DELETE', `/api/admin/users/${item.id}`);
@@ -338,10 +342,8 @@ test('conditional model replies, editable IDs and reason-free admin integration'
         assert.ok(matching.every(row => typeof row.reason === 'string' && row.reason.trim().length > 0));
         assert.ok(matching.every(row => row.actor_id === adminId));
       }
-      const ledger = (await pool.query("SELECT reason,coins_delta,fertilizer_delta FROM ledger WHERE user_id=$1 AND kind='admin_adjustment'", [item.id])).rows[0];
-      assert.equal(Number(ledger.coins_delta), 7);
-      assert.equal(ledger.fertilizer_delta, 2);
-      assert.ok(ledger.reason.trim());
+      assert.equal((await pool.query('SELECT id FROM users WHERE id=$1', [item.id])).rows.length, 0);
+      assert.equal((await pool.query('SELECT id FROM ledger WHERE user_id=$1', [item.id])).rows.length, 0, 'hard deletion also removes the user ledger');
       assert.equal((await request(adminJar, 'PATCH', `/api/admin/users/${adminId}`, { role: 'user' })).statusCode, 409);
       assert.equal((await request(adminJar, 'PATCH', `/api/admin/users/${adminId}`, { status: 'banned' })).statusCode, 409);
       assert.equal((await request(adminJar, 'DELETE', `/api/admin/users/${adminId}`)).statusCode, 409);

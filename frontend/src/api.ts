@@ -22,7 +22,7 @@ export interface AdminUser extends User { identities: Identity[] }
 export interface OAuthProviderConfig { provider: 'github' | 'linuxdo'; enabled: boolean; available: boolean; clientId: string; hasClientSecret: boolean; callbackUrl: string; source: 'database' | 'environment' | 'default' }
 export interface Usage { id: string; modelId: string; coinsCharged: number; createdAt: string; endpoint: string; status: string; username?: string; userId?: string }
 export interface Ledger { id: string; kind: string; coinsDelta: number; fertilizerDelta: number; reason: string; createdAt: string }
-export interface Audit { id: string; actorId: string; actorName: string; action: string; targetId: string; reason: string; before: unknown; after: unknown; createdAt: string }
+export interface Audit { id: string; actorId: string | null; actorName: string; action: string; targetId: string; reason: string; before: unknown; after: unknown; createdAt: string }
 export interface Page<T> { items: T[]; total: number }
 export interface UserDetail { user: User; tree: Tree | null; identities: Identity[]; keys: ApiKey[]; usage: Usage[]; ledger: Ledger[] }
 export interface Stats { users: number; activeUsers: number; models: number; requests: number; coinsIssued: number; coinsSpent: number }

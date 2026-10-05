@@ -9,7 +9,6 @@
   "date": "2026-10-05",
   "corpusSeedEntries": 80,
   "command": "npm run build; npm test",
-  "cwd": "D:\\智慧树",
   "productionDockerAndPostgres": false,
   "database": "fresh isolated PGlite"
 }

@@ -463,6 +463,9 @@ test('complete application and SDK integration', { timeout: 120_000 }, async t =
       await ok(jar, 'POST', '/api/auth/login', { username: 'qa_created', password: 'Another-test-password' });
       await ok(adminJar, 'DELETE', '/api/admin/users/' + id, { reason: '删除验收' });
       assert.equal((await state(jar)).user, null);
+      assert.equal((await pool.query('SELECT id FROM users WHERE id=$1', [id])).rows.length, 0);
+      assert.equal((await request(adminJar, 'GET', '/api/admin/users/' + id)).statusCode, 404);
+      assert.equal((await ok(adminJar, 'POST', '/api/admin/users', { username: 'qa_created', password, displayName: '重新创建' })).user.username, 'qa_created', 'deleted usernames are available for a new account');
       assert.equal((await request(null, 'GET', '/v1/models', undefined, { authorization: 'Bearer ' + temporaryKey })).statusCode, 401);
       assert.equal((await request(adminJar, 'PATCH', '/api/admin/users/' + adminId, { role: 'user', reason: '最后管理员保护' })).statusCode, 409);
       assert.equal((await request(adminJar, 'DELETE', '/api/admin/users/' + adminId, { reason: '最后管理员保护' })).statusCode, 409);

@@ -3,6 +3,5 @@
   "baseURL": "http://127.0.0.1:5173/v1",
   "exitCode": 0,
   "coinsCharged": 2,
-  "output": "{\"type\":\"thread.started\",\"thread_id\":\"01a107fe-09d7-7022-ad0f-0e2447434093\"}\n{\"type\":\"turn.started\"}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"智慧树说：每天照料一点，耐心就会发芽。\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":13597,\"cached_input_tokens\":0,\"cache_write_input_tokens\":0,\"output_tokens\":17,\"reasoning_output_tokens\":0}}\n",
-  "errors": "Reading additional input from stdin...\n2026-10-04T17:37:31.612395Z  WARN codex_core::shell_snapshot: Failed to create shell snapshot for powershell: Shell snapshot not supported yet for PowerShell\n2026-10-04T17:37:41.606847Z  WARN codex_core_plugins::manager: failed to warm featured plugin ids cache error=failed to send remote featured plugin request to https://chatgpt.com/backend-api/plugins/featured?platform=codex: error sending request for url (https://chatgpt.com/backend-api/plugins/featured?platform=codex)\n"
+  "reply": "智慧树说：每天照料一点，耐心就会发芽。"
 }

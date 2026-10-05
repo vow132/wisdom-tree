@@ -35,11 +35,11 @@ export function QueryStatus({ query, children, empty }: { query: Pick<UseQueryRe
   if (empty) return <div className="empty-state">暂无记录。</div>;
   return children;
 }
-export function Pager({ page, total, setPage, pageSize = 20 }: { page: number; total: number; setPage: (page: number) => void; pageSize?: number }) {
+export function Pager({ page, total, setPage, pageSize = 20, disabled = false }: { page: number; total: number; setPage: (page: number) => void; pageSize?: number; disabled?: boolean }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
-  return <div className="pager"><span>共 {total} 条 · 第 {page} / {pages} 页</span><div><Button variant="quiet" onClick={() => setPage(page - 1)} disabled={page <= 1}>上一页</Button><Button variant="quiet" onClick={() => setPage(page + 1)} disabled={page >= pages}>下一页</Button></div></div>;
+  return <div className="pager"><span>共 {total} 条 · 第 {page} / {pages} 页</span><div><Button variant="quiet" onClick={() => setPage(page - 1)} disabled={disabled || page <= 1}>上一页</Button><Button variant="quiet" onClick={() => setPage(page + 1)} disabled={disabled || page >= pages}>下一页</Button></div></div>;
 }
-export function Dialog({ title, children, onClose, wide = false }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
+export function Dialog({ title, children, onClose, wide = false, dismissible = true }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean; dismissible?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useEffect(() => {
@@ -47,7 +47,7 @@ export function Dialog({ title, children, onClose, wide = false }: { title: stri
     ref.current?.showModal();
     return () => { ref.current?.close(); active?.focus(); };
   }, []);
-  return <dialog ref={ref} className={`dialog ${wide ? 'wide' : ''}`} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.target === event.currentTarget) onClose(); }}><div className="dialog-header"><h2 id={titleId}>{title}</h2><button className="close-button" aria-label="关闭对话框" onClick={onClose}>关闭</button></div>{children}</dialog>;
+  return <dialog ref={ref} className={`dialog ${wide ? 'wide' : ''}`} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (dismissible) onClose(); }} onClick={event => { if (dismissible && event.target === event.currentTarget) onClose(); }}><div className="dialog-header"><h2 id={titleId}>{title}</h2><button className="close-button" aria-label="关闭对话框" disabled={!dismissible} onClick={onClose}>关闭</button></div>{children}</dialog>;
 }
 export function PanelTitle({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   return <div className="panel-title"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{action}</div>;

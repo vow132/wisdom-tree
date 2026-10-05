@@ -1,0 +1,25 @@
+.user-bulk-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding: 14px 0; margin-bottom: 10px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.user-selection-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 13px; }
+.user-selection-summary strong { color: var(--green); font-variant-numeric: tabular-nums; }
+.user-bulk-actions { min-width: 0; }
+.admin-user-table .user-selection-cell { width: 72px; padding: 4px; }
+.user-checkbox { display: inline-flex; justify-content: center; align-items: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 8px; cursor: pointer; }
+.user-checkbox input { width: 18px; min-height: 18px; height: 18px; padding: 0; margin: 0; accent-color: var(--green); cursor: pointer; }
+.user-checkbox:has(input:disabled) { cursor: not-allowed; }
+.user-checkbox input:disabled { cursor: not-allowed; opacity: .5; }
+.admin-user-table .user-selected { background: var(--soft-surface); }
+.user-row-actions { min-width: 196px; }
+.admin-user-table .user-row-actions .button { min-height: 44px; }
+.user-action-summary { font-size: 14px; overflow-wrap: anywhere; }
+.user-action-targets { max-height: 160px; overflow-y: auto; padding-left: 20px; margin: 14px 0 0; font-size: 13px; line-height: 1.9; }
+.user-action-targets li { overflow-wrap: anywhere; }
+.user-action-targets span { color: var(--muted); }
+.user-action-note, .user-action-warning { margin-top: 16px; font-size: 13px; line-height: 1.75; }
+.user-action-note { color: var(--muted); }
+.user-action-warning { color: var(--danger); }
+.user-detail-actions { margin-top: 18px; }
+@media (max-width: 680px) {
+  .user-bulk-toolbar { align-items: flex-start; }
+  .user-selection-summary, .user-bulk-actions { width: 100%; }
+  .user-bulk-actions .button { flex: 1 1 100px; }
+}
