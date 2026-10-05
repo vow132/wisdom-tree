@@ -174,7 +174,7 @@ async function main() {
 
   const chatBody = { model: 'gpt-5.6-luna', messages: [{ role: 'user', content: 'hello' }] };
   const responsesBody = { model: 'gpt-5.6-sol', input: 'hello' };
-  const messagesBody = { model: 'claude-sonnet-4-6', max_tokens: 256, messages: [{ role: 'user', content: 'hello' }] };
+  const messagesBody = { model: 'claude-sonnet-4-6', max_tokens: 2048, messages: [{ role: 'user', content: 'hello' }] };
   const chat = chatText(await json('/v1/chat/completions', { method: 'POST', body: chatBody, headers: bearer }));
   const response = responseText(await json('/v1/responses', { method: 'POST', body: responsesBody, headers: bearer }));
   const message = messageText(await json('/v1/messages', { method: 'POST', body: messagesBody, headers: anthropic }));
