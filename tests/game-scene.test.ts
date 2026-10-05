@@ -68,13 +68,20 @@ test('the rendered wisdom tree accepts deliberate feeding and plays pour before 
   window.HTMLElement.prototype.setPointerCapture = function (id: number) { const set = captures.get(this) || new Set(); set.add(id); captures.set(this, set); };
   window.HTMLElement.prototype.hasPointerCapture = function (id: number) { return captures.get(this)?.has(id) || false; };
   window.HTMLElement.prototype.releasePointerCapture = function (id: number) { captures.get(this)?.delete(id); };
+  const backgroundRequests = new Map<string, FileImage>();
   class FileImage extends CanvasImage {
     assetKey = '';
     set src(value: string) {
+      if (value.startsWith('/api/site-assets/')) {
+        this.assetKey = 'CUSTOM_BACKGROUND:' + value;
+        backgroundRequests.set(value, this);
+        return;
+      }
       const relative = value.replace(/^\/assets\//, '');
       this.assetKey = relative.split('/').at(-1)?.replace(/\.png$/, '') || '';
       super.src = readFileSync(resolve(assetRoot, relative));
     }
+    resolveBackground(buffer: Buffer) { super.src = buffer; }
   }
   class PointerEvent extends window.MouseEvent {
     pointerId: number; pointerType: string; isPrimary: boolean;
@@ -116,7 +123,7 @@ test('the rendered wisdom tree accepts deliberate feeding and plays pour before 
   const advance = async (milliseconds: number) => flushTo(now + milliseconds);
   const mount = async (overrides: Partial<Parameters<typeof GameScene>[0]> = {}) => {
     if (root) await act(async () => { root?.unmount(); });
-    jobs.clear(); hidden = false; viewportWidth = 800; reducedMotion = false; interacts = talks = 0; locks.length = 0; imageDraws.length = 0;
+    jobs.clear(); backgroundRequests.clear(); hidden = false; viewportWidth = 800; reducedMotion = false; interacts = talks = 0; locks.length = 0; imageDraws.length = 0;
     props = {
       tree: { seedClaimed: true, planted: true, height: 1 }, fertilizer: 5, coins: 0, feedNonce: 0, reward: 0, tip: 'A', busy: false, readyLabel: '施肥',
       onInteract: () => { interacts++; }, onTalk: () => { talks++; },
@@ -147,6 +154,20 @@ test('the rendered wisdom tree accepts deliberate feeding and plays pour before 
     assert.equal(food().hasPointerCapture(extra.pointerId || 1), false);
   };
   const clickTree = async (x: number, y: number) => { await act(async () => { canvas().dispatchEvent(new window.MouseEvent('click', { bubbles: true, clientX: x, clientY: y })); }); };
+  const customImage = (() => { const image = createCanvas(1600, 600); const context = image.getContext('2d'); context.fillStyle = '#a90c53'; context.fillRect(0, 0, 1600, 600); return image.toBuffer('image/png'); })();
+  const completeBackground = async (url: string) => {
+    const image = backgroundRequests.get(url); assert.ok(image, 'the custom background load was requested');
+    await act(async () => {
+      const loaded = image.onload;
+      await new Promise<void>((resolve, reject) => {
+        image.onload = (...args: any[]) => { (loaded as any)?.apply(image, args); resolve(); };
+        image.onerror = reject;
+        image.resolveBackground(customImage);
+      });
+    });
+    await advance(20);
+  };
+  const backgroundPixel = () => [...nativeCanvas(canvas()).getContext('2d').getImageData(5, 300, 1, 1).data];
   try {
     await t.test('actual seedling alpha, rather than the grass/background, determines valid drops', async () => {
       await mount();
@@ -242,6 +263,55 @@ test('the rendered wisdom tree accepts deliberate feeding and plays pour before 
       await mount(); const initialFetches = fetches;
       await advance(60_000); assert.equal(fetches, initialFetches); assert.equal(fetches, 2);
       assert.equal(phase(), 'idle'); assert.equal(interacts, 0); assert.equal(talks, 0);
+    });
+    await t.test('a late custom background load paints decoded pixels without restarting an accepted feeding animation', async () => {
+      const url = '/api/site-assets/' + 'a'.repeat(32) + '.webp';
+      await mount({ backgroundUrl: url });
+      assert.ok(backgroundRequests.has(url));
+      await render({ tree: { seedClaimed: true, planted: true, height: 2 }, feedNonce: 1, fertilizer: 4, coins: 10, reward: 10 });
+      await advance(300);
+      const started = locks.find(lock => lock.busy)!.at;
+      assert.equal(phase(), 'pouring');
+      await completeBackground(url);
+      assert.deepEqual(backgroundPixel(), [169, 12, 83, 255], 'the real canvas receives the decoded custom image');
+      assert.equal(phase(), 'pouring');
+      assert.deepEqual(locks.map(lock => lock.busy), [true], 'background decode must not briefly unlock or start a second animation');
+      await flushTo(started + 1549); assert.equal(phase(), 'pouring');
+      await flushTo(started + 1600); assert.equal(phase(), 'growing');
+      await flushTo(started + 3100); assert.equal(phase(), 'idle');
+      assert.deepEqual(locks.map(lock => lock.busy), [true, false]);
+      assert.equal(food().disabled, false); assert.equal(fetches, 2, 'a background change does not refetch the original animation assets');
+    });
+    await t.test('restoring the default background and a failed replacement return to the original pixels without changing tree state', async () => {
+      await mount();
+      const original = backgroundPixel();
+      const url = '/api/site-assets/' + 'b'.repeat(32) + '.webp';
+      await render({ backgroundUrl: url }); await completeBackground(url);
+      assert.deepEqual(backgroundPixel(), [169, 12, 83, 255]);
+      await render({ backgroundUrl: null }); await advance(20);
+      assert.deepEqual(backgroundPixel(), original);
+      const failedUrl = '/api/site-assets/' + 'c'.repeat(32) + '.webp';
+      await render({ backgroundUrl: failedUrl });
+      await act(async () => { (backgroundRequests.get(failedUrl)!.onerror as any)?.(new Error('isolated missing custom background')); });
+      await advance(20);
+      assert.deepEqual(backgroundPixel(), original);
+      assert.equal(phase(), 'idle'); assert.equal(food().disabled, false); assert.equal(interacts, 0);
+      assert.deepEqual(locks, []); assert.equal(fetches, 2);
+    });
+    await t.test('a replaced background ignores the previous image finishing late', async () => {
+      const oldUrl = '/api/site-assets/' + 'd'.repeat(32) + '.webp', newUrl = '/api/site-assets/' + 'e'.repeat(32) + '.webp';
+      await mount({ backgroundUrl: oldUrl });
+      const original = backgroundPixel();
+      const staleLoad = backgroundRequests.get(oldUrl)!.onload;
+      await render({ backgroundUrl: newUrl });
+      await act(async () => { (staleLoad as any)?.(); });
+      await advance(20);
+      assert.deepEqual(backgroundPixel(), original, 'an obsolete load cannot replace the new pending background');
+      assert.equal(imageDraws.some(draw => draw.key === 'CUSTOM_BACKGROUND:' + oldUrl), false);
+      await completeBackground(newUrl);
+      assert.deepEqual(backgroundPixel(), [169, 12, 83, 255]);
+      assert.equal(imageDraws.some(draw => draw.key === 'CUSTOM_BACKGROUND:' + newUrl), true);
+      assert.deepEqual(locks, []);
     });
   } finally {
     await act(async () => { root?.unmount(); });

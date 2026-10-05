@@ -33,6 +33,13 @@ small { font-size: 12px; }
 .header-inner { max-width: 1280px; min-height: 78px; margin: auto; padding: 12px 28px; display: flex; align-items: center; gap: 32px; }
 .header-brand { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .brand { color: var(--green); font-size: 23px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.brand { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.site-logo { flex-shrink: 0; width: auto; height: 32px; max-width: 180px; object-fit: contain; }
+.site-name { max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.garden-toolbar > span { min-width: 0; overflow-wrap: anywhere; }
+.site-footer > span { max-width: 65ch; overflow-wrap: anywhere; white-space: pre-line; }
+@media (max-width: 780px) { .site-name { max-width: 120px; } }
+@media (max-width: 420px) { .site-name { max-width: 82px; } .site-logo { max-width: 100px; height: 26px; } .header-brand { gap: 2px; } }
 .repository-controls { display: flex; position: relative; align-items: center; flex-shrink: 0; }
 .repository-link { display: grid; place-items: center; width: 44px; height: 44px; color: var(--muted); border-radius: 6px; }
 .repository-link:hover { color: var(--green); background: var(--soft-surface); }
@@ -304,8 +311,9 @@ details strong { display: block; margin-top: 12px; }
 .panel { border-radius: 14px; }
 .page-heading h1 { font-size: 30px; letter-spacing: -.02em; }
 .garden-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-group); margin-bottom: var(--space-section); }
+.garden-heading > div { min-width: 0; }
 .garden-heading h1 { overflow-wrap: anywhere; }
-.garden-heading p { font-size: 14px; }
+.garden-heading p { font-size: 14px; overflow-wrap: anywhere; white-space: pre-line; }
 .garden-state-label { flex-shrink: 0; font-size: 12px; font-weight: 600; color: #446048; }
 .garden-layout { grid-template-columns: minmax(0,800px) minmax(280px,1fr); gap: var(--space-section); }
 .garden-stage { background: #fff; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }

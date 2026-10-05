@@ -99,7 +99,7 @@ test('repository badge checks only on arrival or explicit actions and restricts 
       const before = requests.length;
       await click();
       assert.equal(requests.length, before);
-      assert.equal(window.document.getElementById('location')!.textContent, '/admin/settings#website-update');
+      assert.equal(window.document.getElementById('location')!.textContent, '/admin/site#website-update');
       assert.match(notices.at(-1)!.message, /配置一键更新凭据/);
       await act(async () => { updateCapabilityChanged(true); });
       assert.equal(requests.length, before);

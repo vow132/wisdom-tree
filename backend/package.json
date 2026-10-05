@@ -13,10 +13,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fastify/cookie": "^11.0.2",
     "@electric-sql/pglite": "^0.3.14",
+    "@fastify/cookie": "^11.0.2",
     "fastify": "^5.6.1",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
@@ -24,5 +25,7 @@
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

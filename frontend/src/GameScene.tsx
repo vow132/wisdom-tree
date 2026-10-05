@@ -43,7 +43,7 @@ function drawAnimation(ctx: CanvasRenderingContext2D, assets: Assets, name: stri
   }
 }
 
-export default function GameScene({ tree, fertilizer, coins, feedNonce, reward, tip, onInteract, onTalk, onAnimationBusyChange, busy, readyLabel }: { tree: Tree | null; fertilizer: number; coins: number; feedNonce: number; reward: number; tip: string; onInteract: () => void; onTalk?: () => void; onAnimationBusyChange?: (busy: boolean) => void; busy: boolean; readyLabel: string }) {
+export default function GameScene({ tree, fertilizer, coins, feedNonce, reward, tip, onInteract, onTalk, onAnimationBusyChange, busy, readyLabel, backgroundUrl }: { tree: Tree | null; fertilizer: number; coins: number; feedNonce: number; reward: number; tip: string; onInteract: () => void; onTalk?: () => void; onAnimationBusyChange?: (busy: boolean) => void; busy: boolean; readyLabel: string; backgroundUrl?: string | null }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [assets, setAssets] = useState<Assets | null>(null);
   const [error, setError] = useState<string>();
@@ -62,6 +62,25 @@ export default function GameScene({ tree, fertilizer, coins, feedNonce, reward, 
   const current = useRef({ tree, fertilizer, coins, feedNonce, reward });
   current.current = { tree, fertilizer, coins, feedNonce, reward };
   const requestDraw = useRef<(() => void) | undefined>(undefined);
+  const customBackground = useRef<HTMLImageElement | null>(null);
+  const paintBackground = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    let active = true;
+    customBackground.current = null;
+    paintBackground.current?.(); requestDraw.current?.();
+    if (!backgroundUrl) return () => { active = false; };
+    const image = new Image();
+    image.onload = () => {
+      if (!active || !image.width || !image.height) return;
+      customBackground.current = image;
+      // Update only the cached background. A late image must not restart an
+      // accepted feeding animation or reset the tree's current height.
+      paintBackground.current?.(); requestDraw.current?.();
+    };
+    image.onerror = () => { if (active) { customBackground.current = null; paintBackground.current?.(); requestDraw.current?.(); } };
+    image.src = backgroundUrl;
+    return () => { active = false; image.onload = image.onerror = null; };
+  }, [backgroundUrl]);
   const changeAnimationBusy = (value: boolean) => {
     if (animating.current === value) return;
     animating.current = value; setAnimationBusy(value); animationCallback.current?.(value);
@@ -139,7 +158,19 @@ export default function GameScene({ tree, fertilizer, coins, feedNonce, reward, 
     const background = document.createElement('canvas'), foreground = document.createElement('canvas');
     background.width = foreground.width = 800; background.height = foreground.height = 600;
     const backgroundCtx = background.getContext('2d'), foregroundCtx = foreground.getContext('2d');
-    if (backgroundCtx) { backgroundCtx.translate(.5, .5); drawAnimation(backgroundCtx, assets, 'tree', 0, name => name === 'bg'); }
+    const cacheBackground = () => {
+      if (!backgroundCtx) return;
+      backgroundCtx.clearRect(0, 0, 800, 600);
+      backgroundCtx.save(); backgroundCtx.translate(.5, .5);
+      drawAnimation(backgroundCtx, assets, 'tree', 0, name => name === 'bg'); backgroundCtx.restore();
+      const image = customBackground.current;
+      if (image) {
+        const scale = Math.max(800 / image.width, 600 / image.height);
+        const width = image.width * scale, height = image.height * scale;
+        backgroundCtx.drawImage(image, (800 - width) / 2, (600 - height) / 2, width, height);
+      }
+    };
+    paintBackground.current = cacheBackground; cacheBackground();
     let frameId = 0, timerId = 0, hiddenAt = document.hidden ? performance.now() : 0;
     let startTime = performance.now(), feedStarted = 0, growthStarted = 0, growthDelta = 0, beforeFeedingPosition = 0, beforeFeedingHeight = 0;
     let lastHeight = current.current.tree?.height || 0, lastPlanted = !!current.current.tree?.planted, lastFeed = current.current.feedNonce;
@@ -260,7 +291,7 @@ export default function GameScene({ tree, fertilizer, coins, feedNonce, reward, 
     requestDraw.current = schedule;
     document.addEventListener('visibilitychange', visibility); motion.addEventListener('change', motionChanged);
     schedule();
-    return () => { cancelScheduled(); requestDraw.current = undefined; document.removeEventListener('visibilitychange', visibility); motion.removeEventListener('change', motionChanged); if (animating.current) changeAnimationBusy(false); };
+    return () => { cancelScheduled(); requestDraw.current = undefined; paintBackground.current = undefined; document.removeEventListener('visibilitychange', visibility); motion.removeEventListener('change', motionChanged); if (animating.current) changeAnimationBusy(false); };
   }, [assets]);
   useEffect(() => { requestDraw.current?.(); }, [tree?.planted, tree?.height, fertilizer, coins, feedNonce, reward]);
   const height = tree?.height || 0;

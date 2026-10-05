@@ -224,7 +224,7 @@ jobs:
           CADDY_IMAGE: ${{ needs.images.outputs.caddy }}
         run: |
           printf 'RELEASE_ID=%s\nAPI_IMAGE=%s\nWEB_IMAGE=%s\nDB_IMAGE=%s\nCADDY_IMAGE=%s\n' "$GITHUB_SHA" "$API_IMAGE" "$WEB_IMAGE" "$DB_IMAGE" "$CADDY_IMAGE" > .release.env
-          tar -czf "$RUNNER_TEMP/wisdom-release.tar.gz" .release.env compose.deploy.yml Caddyfile scripts/deploy.sh scripts/rollback.sh scripts/deploy-from-ci.sh
+          tar -czf "$RUNNER_TEMP/wisdom-release.tar.gz" .release.env compose.deploy.yml Caddyfile scripts/deploy.sh scripts/rollback.sh scripts/deploy-from-ci.sh scripts/backup-site-assets.sh scripts/backup.sh scripts/restore.sh
           opts=(-i "$RUNNER_TEMP/wisdom-ssh/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/wisdom-ssh/known_hosts" -o ConnectTimeout=15)
           incoming="$DEPLOY_ROOT/incoming/$GITHUB_SHA"
           ssh "${opts[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p -- '$incoming'"

@@ -74,8 +74,8 @@ export default function RepositoryStatus({ isAdmin }: { isAdmin: boolean }) {
     if (!failure && status?.updateAvailable && status.phase !== 'running') {
       if (!isAdmin) { notify({ kind: 'info', message: '发现新版本，请联系管理员更新。' }); return; }
       if (!status.canUpdate) {
-        notify({ kind: 'info', message: '请先在管理后台的系统规则中配置一键更新凭据。' });
-        navigate('/admin/settings#website-update');
+        notify({ kind: 'info', message: '请先在管理后台的网站设置中配置一键更新凭据。' });
+        navigate('/admin/site#website-update');
         return;
       }
     }

@@ -10,6 +10,7 @@ import { registerAdmin } from './admin.js';
 import { registerSimulator } from './simulator.js';
 import { simulatorServices } from './billing.js';
 import { registerUpdates } from './updates.js';
+import { registerSiteSettings } from './site-settings.js';
 
 export async function buildApp({ pool, config = {}, updateFetch }: { pool: PoolLike; config?: Partial<AppConfig>; updateFetch?: typeof fetch }): Promise<FastifyInstance> {
   const settings = readConfig(config);
@@ -38,6 +39,7 @@ export async function buildApp({ pool, config = {}, updateFetch }: { pool: PoolL
   await registerGame(app, services);
   await registerAdmin(app, services);
   await registerUpdates(app, services, updateFetch);
+  await registerSiteSettings(app, services);
   await registerSimulator(app, simulatorServices(services));
   return app;
 }

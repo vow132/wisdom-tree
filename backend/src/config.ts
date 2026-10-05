@@ -1,5 +1,6 @@
 import './env.js';
 import { loadApiKeyEncryptionKey } from './key-encryption.js';
+import { resolve } from 'node:path';
 
 export interface AppConfig {
   publicOrigin: string;
@@ -20,6 +21,7 @@ export interface AppConfig {
   appVersion: string;
   updateRepository: string;
   updateBranch: string;
+  siteUploadDir: string;
 }
 
 export function readConfig(overrides: Partial<AppConfig> = {}): AppConfig {
@@ -34,7 +36,8 @@ export function readConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     linuxdoTokenUrl: 'https://connect.linux.do/oauth2/token', linuxdoUserUrl: 'https://connect.linux.do/api/user',
     development: process.env.NODE_ENV !== 'production', apiKeyEncryptionKey: '',
     appVersion: process.env.APP_VERSION || '', updateRepository: process.env.UPDATE_REPOSITORY || 'vow132/wisdom-tree',
-    updateBranch: process.env.UPDATE_BRANCH || 'codex/wisdom-tree', ...overrides,
+    updateBranch: process.env.UPDATE_BRANCH || 'codex/wisdom-tree',
+    siteUploadDir: process.env.SITE_UPLOAD_DIR || resolve('.local', 'site-assets'), ...overrides,
   };
   merged.publicOrigin = new URL(merged.publicOrigin).origin;
   if (overrides.secureCookies === undefined && !process.env.COOKIE_SECURE) merged.secureCookies = merged.publicOrigin.startsWith('https://');
@@ -42,5 +45,7 @@ export function readConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   if (!/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(merged.updateRepository) || merged.updateRepository.length > 200
     || !merged.updateBranch || merged.updateBranch.length > 200 || /[\s?#]/.test(merged.updateBranch)) throw new Error('Invalid update repository or branch.');
   if (!/^[a-f0-9]{40}$/.test(merged.appVersion)) merged.appVersion = '';
+  if (typeof merged.siteUploadDir !== 'string' || !merged.siteUploadDir.trim() || merged.siteUploadDir.includes('\0')) throw new Error('Invalid site upload directory.');
+  merged.siteUploadDir = resolve(merged.siteUploadDir);
   return merged;
 }

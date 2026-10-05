@@ -8,7 +8,7 @@ import ModelReplies from './ModelReplies';
 import ModelRules from './ModelRules';
 import OAuthAdmin from './OAuthAdmin';
 import AdminIdentities from './AdminIdentities';
-import UpdaterSettings from './UpdaterSettings';
+import SiteSettingsPanel from './SiteSettings';
 import './AdminIdentities.css';
 
 export default function Admin({ state, onLogin }: { state: State; onLogin: () => void }) {
@@ -17,7 +17,7 @@ export default function Admin({ state, onLogin }: { state: State; onLogin: () =>
   if (state.user.role !== 'admin') return <section className="error-state"><h1>没有管理权限</h1><p>此页面只向管理员开放。</p><Link to="/">返回花园</Link></section>;
   const segments = location.pathname.split('/').filter(Boolean);
   const tab = segments[1] || 'users';
-  return <div className="admin-layout"><aside className="admin-sidebar"><h1>管理控制台</h1><nav aria-label="管理导航">{[['users', '用户管理'], ['models', '模型管理'], ['oauth', '第三方登录'], ['settings', '养成与 API 规则'], ['usage', '全站调用记录'], ['audit', '管理审计']].map(([id, label]) => <NavLink key={id} to={`/admin/${id}`} className={tab === id ? 'active' : ''}>{label}</NavLink>)}</nav><p>操作由服务器鉴权，所有管理变更记录到审计日志。</p></aside><div className="admin-content"><AdminStats />{tab === 'models' ? segments[2] && segments[3] === 'replies' ? <ModelReplies key={segments[2]} modelId={decodeURIComponent(segments[2])} /> : segments[2] && segments[3] === 'rules' ? <ModelRules key={segments[2]} modelId={decodeURIComponent(segments[2])} /> : <ModelAdmin /> : tab === 'oauth' ? <OAuthAdmin /> : tab === 'settings' ? <Settings /> : tab === 'usage' ? <AdminUsage /> : tab === 'audit' ? <AuditPanel /> : tab === 'users' && segments[2] ? <UserDetailPanel id={decodeURIComponent(segments[2])} /> : <Users />}</div></div>;
+  return <div className="admin-layout"><aside className="admin-sidebar"><h1>管理控制台</h1><nav aria-label="管理导航">{[['users', '用户管理'], ['models', '模型管理'], ['oauth', '第三方登录'], ['site', '网站设置'], ['settings', '养成与 API 规则'], ['usage', '全站调用记录'], ['audit', '管理审计']].map(([id, label]) => <NavLink key={id} to={`/admin/${id}`} className={tab === id ? 'active' : ''}>{label}</NavLink>)}</nav><p>操作由服务器鉴权，所有管理变更记录到审计日志。</p></aside><div className="admin-content"><AdminStats />{tab === 'models' ? segments[2] && segments[3] === 'replies' ? <ModelReplies key={segments[2]} modelId={decodeURIComponent(segments[2])} /> : segments[2] && segments[3] === 'rules' ? <ModelRules key={segments[2]} modelId={decodeURIComponent(segments[2])} /> : <ModelAdmin /> : tab === 'oauth' ? <OAuthAdmin /> : tab === 'site' ? <SiteSettingsPanel /> : tab === 'settings' ? <Settings /> : tab === 'usage' ? <AdminUsage /> : tab === 'audit' ? <AuditPanel /> : tab === 'users' && segments[2] ? <UserDetailPanel id={decodeURIComponent(segments[2])} /> : <Users />}</div></div>;
 }
 
 function AdminStats() {
@@ -91,7 +91,7 @@ function Settings() {
   const query = useQuery({ queryKey: ['admin', 'settings'], queryFn: ({ signal }) => api<Rules>('/api/admin/settings', { signal }) });
   const save = useAction<unknown>(body => api('/api/admin/settings', { method: 'PATCH', body }), '养成与 API 规则已更新。');
   const fields: { key: keyof Rules; label: string; min: number; help: string }[] = [{ key: 'dailyFertilizer', label: '每日肥料', min: 0, help: '每个账号每日可领取的袋数。' }, { key: 'inventoryLimit', label: '肥料库存上限', min: 0, help: '领取每日补给时的库存上限。' }, { key: 'coinsPerFeed', label: '每次施肥奖励金币', min: 0, help: '奖励写入金币账本。' }, { key: 'growthPerFeed', label: '每次施肥成长高度', min: 1, help: '单位为英尺，至少 1。' }, { key: 'apiRateLimit', label: '每分钟 API 请求上限', min: 1, help: '服务端针对 API 调用执行的速率限制。' }];
-  return <><section className="panel"><PanelTitle title="养成与 API 规则" description="规则以服务器配置为准，保存后向所有用户生效。" /><QueryStatus query={query}>{query.data && <form key={JSON.stringify(query.data)} onSubmit={event => { const form = submitData(event); save.mutate({ ...Object.fromEntries(fields.map(field => [field.key, numberField(form, field.key)])) }); }}><div className="form-grid">{fields.map(field => <Field label={field.label} help={field.help} key={field.key}><input name={field.key} type="number" step="1" min={field.min} required defaultValue={query.data![field.key]} /></Field>)}</div><Button type="submit" pending={save.isPending}>保存规则</Button></form>}</QueryStatus></section><UpdaterSettings /></>;
+  return <section className="panel"><PanelTitle title="养成与 API 规则" description="规则以服务器配置为准，保存后向所有用户生效。" /><QueryStatus query={query}>{query.data && <form key={JSON.stringify(query.data)} onSubmit={event => { const form = submitData(event); save.mutate({ ...Object.fromEntries(fields.map(field => [field.key, numberField(form, field.key)])) }); }}><div className="form-grid">{fields.map(field => <Field label={field.label} help={field.help} key={field.key}><input name={field.key} type="number" step="1" min={field.min} required defaultValue={query.data![field.key]} /></Field>)}</div><Button type="submit" pending={save.isPending}>保存规则</Button></form>}</QueryStatus></section>;
 }
 
 function AdminUsage() {

@@ -8,7 +8,7 @@
 
 1. 在自己的部署仓库设置已有的 CI/CD：服务器变量、SSH Secrets、`DEPLOY_ENABLED=true` 和 `PUBLIC_ORIGIN`。
 2. 在 GitHub 为该仓库创建专用的 fine-grained Token，只授权这个仓库，赋予 **Actions 读写**与 **Contents 读取**权限。不要使用访问所有仓库的日常个人 Token。
-3. 管理 → 系统规则 → 网站更新，填写 Token 并开启。该输入只写：保存后清空，不回传明文，数据库保存与 API Key 分开用途的 AES-256-GCM 密文。备份必须保留原加密主密钥。
+3. 管理 → 网站设置 → 网站更新（`/admin/site#website-update`），填写 Token 并开启。更新配置独立保存，修改网站文案或图片不会覆盖 Token。该输入只写：保存后清空，不回传明文，数据库保存与 API Key 分开用途的 AES-256-GCM 密文。备份必须保留原加密主密钥。
 4. 管理员点击黄色状态点会提交一次 `cd.yml` 工作流。重复点击与并发浏览器不会再次提交同一正在执行的更新。普通访客不能触发更新。
 
 触发器使用 GitHub 官方 [workflow dispatch 接口](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)。更新继续执行现有类型检查、测试、Docker 与流式接口验证，再备份数据库、迁移并部署；失败沿用已有回滚。网页进程没有 Docker Socket、SSH 私钥或执行任意系统命令的权限。

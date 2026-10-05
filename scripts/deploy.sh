@@ -34,6 +34,12 @@ validate_release() {
   ' "$candidate"
 }
 validate_release "$task_release_file" || { printf 'Invalid release metadata; use a commit SHA and immutable GHCR images.\n' >&2; exit 2; }
+task_runner_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+task_runner_release=$(dirname -- "$task_runner_dir")/.release.env
+[[ -f $task_runner_dir/backup-site-assets.sh ]] && validate_release "$task_runner_release" || { printf 'The current deployment runner is missing its media backup helper or release metadata.\n' >&2; exit 2; }
+# The target may predate uploaded images. Keep using this runner's current API
+# image for archive validation when rolling back to older application code.
+task_media_image=$(sed -n 's/^API_IMAGE=//p' "$task_runner_release")
 task_release_id=$(sed -n 's/^RELEASE_ID=//p' "$task_release_file")
 task_release_dir=$task_root/releases/$task_release_id
 [[ -f $task_root/.env ]] || { printf 'Server .env is missing; run bootstrap-host.sh first.\n' >&2; exit 2; }
@@ -62,6 +68,11 @@ if [[ $task_release_id == "$task_old_id" && $(wc -l < "$task_root/.release.env")
   for task_file in compose.deploy.yml Caddyfile scripts/deploy.sh scripts/rollback.sh; do
     cmp -s "$task_bundle/$task_file" "$task_old_dir/$task_file" || task_already_running=0
   done
+  for task_file in scripts/backup-site-assets.sh scripts/backup.sh scripts/restore.sh; do
+    if [[ -f $task_bundle/$task_file || -f $task_old_dir/$task_file ]]; then
+      cmp -s "$task_bundle/$task_file" "$task_old_dir/$task_file" || task_already_running=0
+    fi
+  done
   # A manual update can queue behind the automatic push deployment. If the same
   # commit is already healthy, a rebuilt provenance digest need not replace it.
   for task_service in api web db caddy; do
@@ -81,12 +92,20 @@ if [[ -d $task_release_dir ]]; then
   for task_file in compose.deploy.yml Caddyfile scripts/deploy.sh scripts/rollback.sh; do
     cmp -s "$task_bundle/$task_file" "$task_release_dir/$task_file" || { printf 'Release bundle differs from the already saved commit.\n' >&2; exit 1; }
   done
+  for task_file in scripts/backup-site-assets.sh scripts/backup.sh scripts/restore.sh; do
+    if [[ -f $task_bundle/$task_file || -f $task_release_dir/$task_file ]]; then
+      cmp -s "$task_bundle/$task_file" "$task_release_dir/$task_file" || { printf 'Maintenance script differs from the already saved commit.\n' >&2; exit 1; }
+    fi
+  done
   cmp -s "$task_release_file" "$task_release_dir/.release.env" || { printf 'Image metadata differs from the already saved commit.\n' >&2; exit 1; }
 else
   task_staging=$(mktemp -d "$task_root/releases/.prepare.XXXXXXXX")
   mkdir -p "$task_staging/scripts"
   cp -- "$task_bundle/compose.deploy.yml" "$task_bundle/Caddyfile" "$task_staging/"
   cp -- "$task_bundle/scripts/deploy.sh" "$task_bundle/scripts/rollback.sh" "$task_staging/scripts/"
+  for task_file in backup-site-assets.sh backup.sh restore.sh; do
+    if [[ -f $task_bundle/scripts/$task_file ]]; then cp -- "$task_bundle/scripts/$task_file" "$task_staging/scripts/"; fi
+  done
   cp -- "$task_release_file" "$task_staging/.release.env"
   mv -- "$task_staging" "$task_release_dir"
 fi
@@ -98,7 +117,7 @@ compose_for() {
   env -u API_IMAGE -u WEB_IMAGE -u DB_IMAGE -u CADDY_IMAGE -u RELEASE_ID -u POSTGRES_PASSWORD \
     -u API_KEY_ENCRYPTION_KEY -u PUBLIC_ORIGIN -u SITE_ADDRESS -u ACME_EMAIL \
     -u GITHUB_CLIENT_ID -u GITHUB_CLIENT_SECRET -u LINUXDO_CLIENT_ID -u LINUXDO_CLIENT_SECRET \
-    -u ADMIN_USERNAME -u ADMIN_PASSWORD -u LOG_LEVEL -u DB_POOL_MAX -u APP_VERSION -u UPDATE_REPOSITORY -u UPDATE_BRANCH \
+    -u ADMIN_USERNAME -u ADMIN_PASSWORD -u LOG_LEVEL -u DB_POOL_MAX -u APP_VERSION -u UPDATE_REPOSITORY -u UPDATE_BRANCH -u SITE_UPLOAD_DIR \
     docker compose --project-name wisdom-tree --project-directory "$release" --env-file "$task_root/.env" --env-file "$release/.release.env" -f "$release/compose.deploy.yml" "$@"
 }
 compose() { compose_for "$task_release_dir" "$@"; }
@@ -169,7 +188,8 @@ fi
 task_backup_id=$(date -u +%Y%m%dT%H%M%SZ)-$task_release_id-$$
 task_dump=$task_root/backups/$task_backup_id.dump
 task_env_backup=$task_root/backups/$task_backup_id.env
-[[ ! -e $task_dump && ! -e $task_env_backup ]]
+task_uploads_backup=$task_root/backups/$task_backup_id.uploads.tar.gz
+[[ ! -e $task_dump && ! -e $task_env_backup && ! -e $task_uploads_backup ]]
 task_dump_tmp=$(mktemp "$task_root/backups/.dump.XXXXXXXX")
 task_env_tmp=$(mktemp "$task_root/backups/.env.XXXXXXXX")
 compose_for "$task_backup_release" exec -T db pg_dump -U wisdom -d wisdom -Fc >"$task_dump_tmp"
@@ -178,11 +198,12 @@ compose_for "$task_backup_release" exec -T db pg_dump -U wisdom -d wisdom -Fc >"
 compose_for "$task_backup_release" exec -T db pg_restore --file=/dev/null <"$task_dump_tmp"
 cp -- "$task_root/.env" "$task_env_tmp"
 chmod 600 "$task_dump_tmp" "$task_env_tmp"
+bash "$task_runner_dir/backup-site-assets.sh" "$task_media_image" wisdom-tree_site_uploads "$task_uploads_backup"
 mv -- "$task_dump_tmp" "$task_dump"
 task_dump_tmp=''
 mv -- "$task_env_tmp" "$task_env_backup"
 task_env_tmp=''
-printf 'Protected database/configuration backup saved: %s\n' "$task_backup_id"
+printf 'Protected database/configuration/uploaded-images backup saved: %s\n' "$task_backup_id"
 
 if [[ -n $task_old_dir ]]; then
   # Only now may Compose replace the old database container/image.
@@ -198,6 +219,9 @@ case "$task_has_admin" in
   f) compose run --rm --no-deps api node dist/admin-cli.js ;;
   *) printf 'Unable to determine whether an administrator exists.\n' >&2; false ;;
 esac
+if [[ $task_rollback != --code-rollback ]]; then
+  compose run --rm --no-deps api node dist/site-media-archive.js check-references
+fi
 compose up -d --wait --wait-timeout 180 api web caddy
 
 task_origin=$(sed -n 's/^PUBLIC_ORIGIN=//p' "$task_root/.env")

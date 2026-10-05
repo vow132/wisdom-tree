@@ -48,6 +48,9 @@ incoming/<40-character-commit-sha>/
   scripts/deploy.sh
   scripts/rollback.sh
   scripts/deploy-from-ci.sh
+  scripts/backup-site-assets.sh
+  scripts/backup.sh
+  scripts/restore.sh
 ```
 
 ```dotenv
@@ -71,7 +74,9 @@ bash /opt/wisdom-tree/incoming/<sha>/scripts/deploy.sh \
 
 部署加独占锁，先校验配置并拉取 API、前端、数据库和 Caddy 四个镜像，并确认新旧数据库镜像均为 PostgreSQL 17。拉取或版本校验失败会直接结束，不停止当前 API。此部署流程仅支持 PostgreSQL 17 主版本内的镜像更换，不支持跨主版本升级或主版本降级。
 
-已有成功发布版本时，脚本先用旧版本的 Compose 配置确认旧数据库健康，标记进入版本切换，再停止旧 API。随后备份旧数据库，完整解码验证压缩归档后原子保存，并另存一份权限 `600` 的 `.env`；两项备份成功后才启动新数据库镜像并确认健康。首次部署没有旧发布版本时，先启动数据库，再完成相同的数据库与 `.env` 备份。重复部署同一 SHA 也会先备份，保留已有数据卷。
+已有成功发布版本时，脚本先用旧版本的 Compose 配置确认旧数据库健康，标记进入版本切换，再停止旧 API。随后备份旧数据库、保护 `.env` 并保存上传图片归档；数据库和图片归档均完整验证，三项备份成功后才更换数据库镜像。首次部署没有旧版本时，先启动数据库再备份；尚无图片卷时生成空图片归档。相同 SHA 的四个服务已健康且发布文件一致时直接完成，否则保留已有数据卷并执行检查。
+
+网站设置中的图片存于 `wisdom-tree_site_uploads` 卷，API 目录为 `/var/lib/wisdom-tree/uploads`，容器运行用户拥有目录。图片采用独立文件名，旧图片保留以支持旧备份恢复。图片不会进入 Git、公开源码包或镜像；数据库只保存设置和图片元数据。直接 Node 开发使用 `.local/site-assets`，可通过 `SITE_UPLOAD_DIR` 设置。
 
 备份完成并启动新数据库后，新 API 镜像执行 `node dist/migrate.js`。迁移成功后，仅在数据库确认没有有效管理员时执行 `node dist/admin-cli.js` 创建初始管理员，不重置已有账户。随后启动 API、前端、Caddy，检查容器健康、公开 HTTPS 的 `/health`、首页 HTML 以及 HTTP 跳转 HTTPS。
 
@@ -89,26 +94,18 @@ bash /opt/wisdom-tree/incoming/<sha>/scripts/deploy.sh \
 bash /opt/wisdom-tree/releases/<current-sha>/scripts/rollback.sh
 ```
 
-手动回滚同样先确认新旧数据库镜像为 PostgreSQL 17，停止当前 API 并备份当前数据库与 `.env`，完成验证后才更换数据库和应用镜像；它保留数据卷并跳过旧镜像迁移，不回退数据库内容。当前与前一版本会互换，便于再次切换。应用第一次部署失败时没有旧版本可恢复，数据库与备份会保留供排查。
+手动回滚同样先确认新旧数据库镜像为 PostgreSQL 17，停止当前 API 并备份数据库、`.env` 与图片，完成验证后才更换镜像；它保留数据卷并跳过旧镜像迁移，不回退数据库内容。回滚到不支持网站图片的旧版本时，图片仍保留在独立卷，归档验证使用当前部署脚本配套的新 API 工具镜像。当前与前一版本会互换。应用第一次部署失败时没有旧版本可恢复，数据库与备份会保留供排查。
 
-数据库备份位于 `/opt/wisdom-tree/backups/<UTC timestamp>-<sha>-<pid>.dump`，对应的 `.env` 快照是同名 `.env` 文件。备份目录权限 `700`，归档及密钥快照权限 `600`。应将这两种文件一起复制到受保护的异机存储；仅数据库备份缺少加密主密钥时无法解密用户密钥和 OAuth Secret。脚本不会删除旧备份或执行全机 `docker system prune`。
+备份位于 `/opt/wisdom-tree/backups/<UTC timestamp>-<sha>-<pid>`，同一份备份包括 `.dump`、`.env` 和 `.uploads.tar.gz`。目录权限 `700`，文件权限 `600`。三种文件应一起复制到受保护的异机存储；缺少加密主密钥无法解密用户密钥和 OAuth Secret，缺少图片归档可能导致恢复的页面缺图。脚本不会删除旧备份。
 
-需要替换数据库时，先保存现场备份，在维护窗口停止 API，再用当前发布配置执行 `pg_restore --clean --if-exists --no-owner --single-transaction`。恢复后还原与备份配套的 `.env` 密钥，确认数据库密码与既有 PostgreSQL 用户一致，再启动匹配的应用版本。不要执行 `docker compose down -v`。
+手动备份与恢复使用当前发布包的脚本。恢复会替换数据库：先保存现场备份，安全核对备份配套的加密密钥及数据库密码，再执行恢复。脚本在停服务前验证数据库与图片归档，保留现有图片、合并缺失文件，事务恢复数据库后核验全部图片引用。缺图时 API 保持停止，修复后再启动。完整步骤见[图片备份与恢复](site-assets-backup.md)。
 
 ```sh
 cd /opt/wisdom-tree
 release="releases/$(sed -n 's/^RELEASE_ID=//p' .release.env)"
-compose() {
-  docker compose --project-name wisdom-tree --project-directory "$PWD/$release" \
-    --env-file "$PWD/.env" --env-file "$PWD/$release/.release.env" \
-    -f "$PWD/$release/compose.deploy.yml" "$@"
-}
-compose stop api
+bash "$release/scripts/backup.sh" backups
 # BACKUP_PATH must point to the reviewed protected backup to restore.
-compose exec -T db pg_restore -U wisdom -d wisdom --clean --if-exists \
-  --no-owner --single-transaction < "$BACKUP_PATH"
-# Restore the matching key/configuration snapshot securely before starting.
-compose up -d --wait api web caddy
+bash "$release/scripts/restore.sh" "$BACKUP_PATH" --replace-database
 ```
 
 SSH 认证失败、网络端口不通、域名未解析或 CI Secrets 缺失时，代码检查可以继续，实际发布仍需修复这些条件。工作流通过不等于已经访问生产服务器成功；以 CD 日志、公开健康检查和实际 HTTPS 访问结果为准。

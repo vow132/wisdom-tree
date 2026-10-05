@@ -54,17 +54,17 @@ docker compose exec -T api node dist/admin-cli.js
 
 GitHub 自动发布使用 [CI/CD 部署说明](docs/deployment.md) 中的 `compose.deploy.yml`，服务器运行已构建的镜像，避免在 2GB 机器上编译。默认分支 `codex/wisdom-tree` 的每次推送先执行 [CI](docs/ci.md)，通过后发布私有 GHCR 镜像、启动一次性完整 Docker 栈验证 Caddy 与普通/流式接口，再通过固定主机公钥的 SSH 连接部署。生产目录固定为 `/opt/wisdom-tree`，目标站点为 `https://ai.91i.asia`。源码不包含服务器密码、SSH 私钥或生产 `.env`。
 
-启动时会执行数据库迁移。数据库、HTTPS 证书使用持久卷；PostgreSQL 与后端端口不暴露到公网。初次初始化管理员后，可从 `.env` 清除 `ADMIN_PASSWORD` 并重建 API 服务。
+启动时会执行数据库迁移。数据库、上传图片、HTTPS 证书使用持久卷；PostgreSQL 与后端端口不暴露到公网。初次初始化管理员后，可从 `.env` 清除 `ADMIN_PASSWORD` 并重建 API 服务。
 
 ```bash
 docker compose ps
 docker compose logs --tail=100 api
-sh scripts/backup.sh
+bash scripts/backup.sh
 # 恢复会替换现有数据库；先保存当前备份：
-sh scripts/restore.sh backups/wisdom-时间.dump --replace-database
+bash scripts/restore.sh backups/wisdom-时间.dump --replace-database
 ```
 
-备份恢复必须同时保留同一份 `API_KEY_ENCRYPTION_KEY`，它用于恢复 API 密钥和后台保存的 OAuth Client Secret。数据库备份不包含 `.env`，请单独安全保管该文件；不能在恢复时重新生成主密钥。本机预览的主密钥自动保存于 `.local/api-key-encryption.key`，备份本机数据时同时保留该文件和 `.local/preview-db`。
+备份恢复必须同时保留同一份 `API_KEY_ENCRYPTION_KEY`，它用于恢复 API 密钥和后台保存的 OAuth Client Secret、网站更新 Token。新版备份脚本生成同 ID 的数据库 `.dump`、配置 `.env` 和图片 `.uploads.tar.gz`，三项须一起安全保管；不能在恢复时重新生成主密钥。图片归档与数据库恢复流程见 [图片备份恢复](docs/site-assets-backup.md)。本机预览的主密钥自动保存于 `.local/api-key-encryption.key`，备份本机数据时同时保留该文件、`.local/preview-db` 和 `.local/site-assets`。
 
 ## 三种登录
 
@@ -97,7 +97,9 @@ Client Secret 加密保存在数据库中，后台只显示是否已配置；留
 
 右上角主题入口采用太阳／月亮图标，点击后可选择浅色、深色或随系统。选择保存在浏览器中；随系统模式监听系统配色变化，不发送后台请求。原版花园图像和对白气泡保持自身颜色。
 
-标题旁的 GitHub 图标打开本仓库；绿点表示当前运行版本与仓库一致，黄点表示有更新，灰点表示无法确认。页面打开时单次检查，服务端合并请求并缓存成功结果 5 分钟、失败结果 1 分钟，不轮询。管理员在“系统规则 → 网站更新”配置只授权部署仓库的 Token 后，点击黄点可触发已有 CI/CD；普通访客不能执行更新。配置、权限与独立部署说明见 [网站更新](docs/website-updates.md)。
+“管理控制台 → 网站设置”可修改导航栏名称、浏览器标题、花园说明和页脚文案，也可上传网站 Logo、浏览器图标和花园背景。图片选择后先预览，点击“上传图片”才保存；支持不超过 2 MB 的静态 PNG、JPEG、WebP，服务端重新编码。Logo 替代导航栏文字，浏览器图标转换为 PNG；可恢复文字品牌、默认图标或原版背景。文案与图片独立保存，当前页面直接更新，不轮询。上传文件保存在私有持久目录，不进入 Git 或源码包；使用公开图片时请同时保存数据库与图片备份。详见 [网站设置](docs/site-settings.md) 与 [图片备份恢复](docs/site-assets-backup.md)。
+
+标题旁的 GitHub 图标打开本仓库；绿点表示当前运行版本与仓库一致，黄点表示有更新，灰点表示无法确认。页面打开时单次检查，服务端合并请求并缓存成功结果 5 分钟、失败结果 1 分钟，不轮询。管理员在“网站设置 → 网站更新”配置只授权部署仓库的 Token 后，点击黄点可触发已有 CI/CD；普通访客不能执行更新。配置、权限与独立部署说明见 [网站更新](docs/website-updates.md)。
 
 管理员可管理用户、模型、价格、流式速度、每日肥料、库存、成长、金币奖励和每分钟接口限流。在“模型管理 → 管理回复”中，可以按编号新增、查询、编辑或删除每个模型的返回文本；同一模型内编号不能重复，每个模型最多 500 条。模型默认文本作为空回复库的后备内容。回复按编号从小到大循环，每个用户、每个模型有独立位置；已经接受的请求保留原回复快照，后续编辑不改变重放内容。
 
@@ -136,7 +138,7 @@ npm run build
 npm test
 ```
 
-`frontend/` 为 React / Canvas 2D 网页，`backend/` 为 Fastify 服务，`backend/migrations/` 为 PostgreSQL 迁移。集成测试使用独立 PGlite 数据库，覆盖登录、OAuth 模拟流程、养成、并发计费、断流、幂等、管理员权限，以及官方 SDK 的 JSON / SSE 解析。
+`frontend/` 为 React / Canvas 2D 网页，`backend/` 为 Fastify 服务，`backend/migrations/` 为 PostgreSQL 迁移。集成测试使用独立 PGlite 数据库，覆盖登录、OAuth 模拟流程、养成、并发计费、断流、幂等、管理员权限、网站配置与图片处理，以及官方 SDK 的 JSON / SSE 解析。一次性 Docker 栈还验证实际 sharp 上传、Caddy 图片响应、API 重建后图片持久性，测试使用独立数据与卷。
 
 原版素材来源与转换过程见 [素材说明](docs/assets.md)。部署、真实 OAuth 授权和公网 HTTPS 仍需在配置好实际服务器与第三方应用后验证。
 完整测试范围及未验证项见 [验收记录](docs/qa-acceptance.md)，原版画面对照见 [设计核验](design-qa.md)。

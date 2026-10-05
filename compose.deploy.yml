@@ -46,6 +46,9 @@ services:
       APP_VERSION: ${RELEASE_ID:-unknown}
       UPDATE_REPOSITORY: ${UPDATE_REPOSITORY:-vow132/wisdom-tree}
       UPDATE_BRANCH: ${UPDATE_BRANCH:-codex/wisdom-tree}
+      SITE_UPLOAD_DIR: /var/lib/wisdom-tree/uploads
+    volumes:
+      - site_uploads:/var/lib/wisdom-tree/uploads
     depends_on:
       db: {condition: service_healthy}
     healthcheck:
@@ -95,5 +98,6 @@ networks:
   internal:
 volumes:
   postgres_data:
+  site_uploads:
   caddy_data:
   caddy_config:

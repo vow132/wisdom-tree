@@ -18,6 +18,7 @@ COPY --from=build /app/backend/dist backend/dist
 COPY backend/migrations backend/migrations
 COPY backend/data backend/data
 WORKDIR /app/backend
+RUN mkdir -p /var/lib/wisdom-tree/uploads && chown node:node /var/lib/wisdom-tree/uploads && chmod 700 /var/lib/wisdom-tree/uploads
 USER node
 EXPOSE 3000
 CMD ["node", "dist/server.js"]

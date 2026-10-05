@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { readFile, writeFile } from 'node:fs/promises';
+import { deflateSync } from 'node:zlib';
 
 // Run against a disposable CI stack behind Caddy, never a live server.
 const origin = new URL(process.env.CI_SMOKE_ORIGIN || 'http://127.0.0.1');
@@ -11,6 +13,7 @@ const deadline = AbortSignal.timeout(150_000);
 const userJar = new Map();
 const account = 'smoke_' + randomBytes(8).toString('hex');
 const password = 'Disposable-' + randomBytes(18).toString('base64url') + '!';
+const assetsManifest = '.local/docker-ci-assets.json';
 let requests = 0;
 
 async function request(path, { method = 'GET', body, jar, headers = {}, timeout = 10_000 } = {}) {
@@ -47,6 +50,99 @@ async function json(path, options = {}, expectedStatus = 200) {
 async function state() { return json('/api/me', { jar: userJar }); }
 async function action(name, key = randomUUID()) {
   return json('/api/tree/' + name, { method: 'POST', body: {}, jar: userJar, headers: { 'Idempotency-Key': key } });
+}
+
+// Valid PNG fixtures use only Node's standard library. The API container must
+// decode and re-encode them with its real sharp/libvips production dependency.
+function pngFixture(width, height) {
+  const crc32 = input => {
+    let crc = 0xffffffff;
+    for (const byte of input) {
+      crc ^= byte;
+      for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type, data) => {
+    const name = Buffer.from(type);
+    const length = Buffer.alloc(4), checksum = Buffer.alloc(4);
+    length.writeUInt32BE(data.length); checksum.writeUInt32BE(crc32(Buffer.concat([name, data])));
+    return Buffer.concat([length, name, data, checksum]);
+  };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(width, 0); ihdr.writeUInt32BE(height, 4); ihdr[8] = 8; ihdr[9] = 6;
+  const rows = Buffer.alloc((width * 4 + 1) * height);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const at = y * (width * 4 + 1) + 1 + x * 4;
+    rows[at] = 53; rows[at + 1] = 123; rows[at + 2] = 79; rows[at + 3] = 255;
+  }
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+async function verifySiteAsset(asset) {
+  assert.ok(/^\/api\/site-assets\/[a-f0-9]{32}\.(png|webp)$/.test(asset.url), 'Managed image URL must be a controlled same-origin asset.');
+  const response = await request(asset.url);
+  assert.equal(response.status, 200, 'Uploaded image is unavailable through Caddy.');
+  assert.ok(response.headers.get('content-type')?.startsWith(asset.mimeType), 'Uploaded image MIME type is incorrect.');
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  assert.ok(response.headers.get('cache-control')?.includes('immutable'), 'Versioned image cache policy is missing.');
+  const bytes = Buffer.from(await response.arrayBuffer());
+  assert.ok(bytes.length > 12 && bytes.length <= 2 * 1024 * 1024, 'Uploaded image body is invalid.');
+  if (asset.mimeType === 'image/png') {
+    assert.ok(bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])), 'Favicon was not converted to PNG.');
+    assert.equal(bytes.toString('ascii', 12, 16), 'IHDR');
+    assert.equal(bytes.readUInt32BE(16), 256, 'Favicon width was not resized to its limit.');
+    assert.equal(bytes.readUInt32BE(20), 256, 'Favicon height was not resized to its limit.');
+  } else {
+    assert.equal(bytes.toString('ascii', 0, 4), 'RIFF');
+    assert.equal(bytes.toString('ascii', 8, 12), 'WEBP', 'Logo/background were not converted to WebP.');
+  }
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  if (asset.sha256) assert.equal(digest, asset.sha256, 'Uploaded image changed after an API recreation.');
+  return { ...asset, sha256: digest };
+}
+
+async function siteSettingsSmoke(adminJar) {
+  const original = await json('/api/admin/site-settings', { jar: adminJar });
+  assert.equal(original.siteName, '智慧树', 'Fresh website settings did not use the defaults.');
+  for (const field of ['logoUrl', 'faviconUrl', 'gardenBackgroundUrl']) assert.equal(original[field], null, 'Docker smoke expects a fresh disposable image configuration.');
+  const texts = { siteName: 'CI 智慧树', browserTitle: 'CI 网站标题', gardenSubtitle: '', footerText: 'CI 页脚文案' };
+  const savedAssets = [];
+  try {
+    const saved = await json('/api/admin/site-settings', { method: 'PATCH', body: texts, jar: adminJar });
+    for (const [field, value] of Object.entries(texts)) assert.equal(saved[field], value, 'Website text did not persist.');
+    const publicSettings = await request('/api/site-settings');
+    assert.ok(publicSettings.headers.get('cache-control')?.includes('no-store'), 'Public configuration must not be served from a stale proxy cache.');
+    assert.equal((await publicSettings.json()).siteName, texts.siteName);
+    for (const [slot, field, width, height, mimeType] of [
+      ['logo', 'logoUrl', 64, 24, 'image/webp'],
+      ['favicon', 'faviconUrl', 320, 320, 'image/png'],
+      ['garden-background', 'gardenBackgroundUrl', 800, 600, 'image/webp'],
+    ]) {
+      const result = await json('/api/admin/site-settings/assets/' + slot, { method: 'POST', body: { data: pngFixture(width, height).toString('base64'), mimeType: 'image/png' }, jar: adminJar });
+      assert.equal(result.siteName, texts.siteName, 'Image upload overwrote the website text.');
+      assert.ok(result[field]);
+      savedAssets.push(await verifySiteAsset({ url: result[field], mimeType }));
+    }
+  } finally {
+    const restored = await json('/api/admin/site-settings', { method: 'PATCH', body: {
+      siteName: original.siteName, browserTitle: original.browserTitle, gardenSubtitle: original.gardenSubtitle, footerText: original.footerText,
+      logoUrl: null, faviconUrl: null, gardenBackgroundUrl: null,
+    }, jar: adminJar });
+    for (const field of ['siteName', 'browserTitle', 'gardenSubtitle', 'footerText', 'logoUrl', 'faviconUrl', 'gardenBackgroundUrl']) assert.equal(restored[field], original[field], 'Disposable website settings were not restored.');
+  }
+  for (const asset of savedAssets) await verifySiteAsset(asset);
+  await writeFile(assetsManifest, JSON.stringify(savedAssets) + '\n', { mode: 0o600 });
+  console.log('PASS: website text, real sharp uploads, public images and default restoration through Caddy');
+}
+
+async function verifyPersistedSiteAssets() {
+  const assets = JSON.parse(await readFile(assetsManifest, 'utf8'));
+  assert.ok(Array.isArray(assets) && assets.length === 3, 'Managed CI image manifest is missing.');
+  for (const asset of assets) {
+    assert.ok(['image/png', 'image/webp'].includes(asset.mimeType) && /^[a-f0-9]{64}$/.test(asset.sha256), 'Managed CI image metadata is invalid.');
+    await verifySiteAsset(asset);
+  }
+  console.log('PASS: uploaded images survived API container recreation');
 }
 
 // Consume the actual response body stream through Caddy. Bound size and frames;
@@ -237,12 +333,14 @@ async function main() {
     assert.equal(admin.user.role, 'admin', 'CLI-created administrator cannot log in.');
     assert.ok((await json('/api/admin/users', { jar: adminJar })).items.some(user => user.id === registered.user.id));
     assert.ok((await json('/api/admin/models', { jar: adminJar })).items.length >= 3);
+    await json('/api/admin/site-settings', { jar: userJar }, 403);
+    await siteSettingsSmoke(adminJar);
     console.log('PASS: CLI-created administrator login and management routes');
   }
   console.log(`Docker smoke passed (${requests} requests, disposable local stack).`);
 }
 
-await main().catch(error => {
+await (process.argv.includes('--verify-assets-only') ? verifyPersistedSiteAssets() : main()).catch(error => {
   // Messages above never contain credentials, tokens, cookies or response bodies.
   console.error('Docker smoke failed: ' + (error instanceof Error ? error.message : 'unexpected check failure'));
   process.exitCode = 1;

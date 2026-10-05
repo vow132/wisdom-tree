@@ -54,13 +54,13 @@ export const queryClient = new QueryClient({ defaultOptions: { queries: { staleT
 export async function refreshState(state?: State, affected?: readonly string[]) {
   if (state?.rules && 'user' in state) {
     const previous = queryClient.getQueryData<State>(['me']);
-    if (previous?.user?.id !== state.user?.id) queryClient.removeQueries({ predicate: query => query.queryKey[0] !== 'me' });
+    if (previous?.user?.id !== state.user?.id) queryClient.removeQueries({ predicate: query => !['me', 'site-settings'].includes(String(query.queryKey[0])) });
     queryClient.setQueryData(['me'], state);
     // The action response is authoritative. Update the scene without another GET.
-    await queryClient.invalidateQueries({ predicate: query => query.queryKey[0] !== 'me', refetchType: 'none' });
+    await queryClient.invalidateQueries({ predicate: query => !['me', 'site-settings'].includes(String(query.queryKey[0])), refetchType: 'none' });
     return;
   }
-  await queryClient.invalidateQueries({ predicate: affected ? query => affected.includes(String(query.queryKey[0])) : undefined });
+  await queryClient.invalidateQueries({ predicate: query => query.queryKey[0] !== 'site-settings' && (!affected || affected.includes(String(query.queryKey[0]))) });
 }
 export const time = (value: string | null | undefined) => value ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—';
 export const number = (value: number | null | undefined) => new Intl.NumberFormat('zh-CN').format(value ?? 0);

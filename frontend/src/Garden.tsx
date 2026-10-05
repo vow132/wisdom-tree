@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { api, number, type Dialogue, type State } from './api';
 import { Button, Dialog, useAction, useNotice } from './ui';
 import GameScene from './GameScene';
+import { defaultSiteSettings, type SiteSettings } from './site-settings';
 
 type TreeAction = 'seed' | 'plant' | 'claim-fertilizer' | 'feed';
 
-export default function Garden({ state, onLogin }: { state: State; onLogin: () => void }) {
+export default function Garden({ state, onLogin, site = defaultSiteSettings }: { state: State; onLogin: () => void; site?: SiteSettings }) {
   const [feedNonce, setFeedNonce] = useState(0);
   const [reward, setReward] = useState(0);
   const [tip, setTip] = useState('');
@@ -63,11 +64,11 @@ export default function Garden({ state, onLogin }: { state: State; onLogin: () =
   };
   const owner = state.user?.displayName || state.user?.username;
   return <div className="garden-page">
-    <div className="page-heading garden-heading"><div><h1>{owner ? `${owner} 的花园` : '智慧树花园'}</h1><p>每天照料一点，让智慧慢慢生长。</p></div><span className="garden-state-label">{planted ? '正在生长' : state.tree?.seedClaimed ? '等待播种' : '从一颗种子开始'}</span></div>
+    <div className="page-heading garden-heading"><div><h1>{owner ? `${owner} 的花园` : `${site.siteName}花园`}</h1>{site.gardenSubtitle && <p>{site.gardenSubtitle}</p>}</div><span className="garden-state-label">{planted ? '正在生长' : state.tree?.seedClaimed ? '等待播种' : '从一颗种子开始'}</span></div>
     <div className="garden-layout">
       <section className="garden-stage" aria-label="智慧树花园场景">
-        <div className="garden-toolbar"><span>智慧树</span><div><Button variant="quiet" onClick={() => setMenu(true)}>花园菜单</Button><Link className="button secondary" to="/api">模型商店</Link></div></div>
-        <GameScene tree={state.tree} fertilizer={state.user?.fertilizer || 0} coins={state.user?.coins || 0} feedNonce={feedNonce} reward={reward} tip={planted ? tip || '点我一下，听一条智慧树语录。' : state.tree?.seedClaimed ? '种子准备好了，把它种进花盆吧。' : '花盆已经准备好了。领取一颗种子，让智慧开始生长。'} busy={treeAction.isPending || talkAction.isPending} onInteract={interact} onTalk={talk} onAnimationBusyChange={setAnimationBusy} readyLabel={primaryLabel} />
+        <div className="garden-toolbar"><span>{site.siteName}</span><div><Button variant="quiet" onClick={() => setMenu(true)}>花园菜单</Button><Link className="button secondary" to="/api">模型商店</Link></div></div>
+        <GameScene backgroundUrl={site.gardenBackgroundUrl} tree={state.tree} fertilizer={state.user?.fertilizer || 0} coins={state.user?.coins || 0} feedNonce={feedNonce} reward={reward} tip={planted ? tip || '点我一下，听一条智慧树语录。' : state.tree?.seedClaimed ? '种子准备好了，把它种进花盆吧。' : '花盆已经准备好了。领取一颗种子，让智慧开始生长。'} busy={treeAction.isPending || talkAction.isPending} onInteract={interact} onTalk={talk} onAnimationBusyChange={setAnimationBusy} readyLabel={primaryLabel} />
         <div className="garden-caption"><span>{planted ? '拖动肥料到树上，或点击施肥；点击树换一句智慧。' : '每个账号拥有一棵智慧树，成长会一直保存。'}</span>{planted && <Button variant="quiet" onClick={talk} pending={talkAction.isPending} disabled={animationBusy || treeAction.isPending}>听下一句</Button>}</div>
         {planted && dialogue && <div className="dialogue-transcript" aria-live="polite"><div><strong>{dialogue.modelDisplayName}</strong><span>{dialogue.total ? `${dialogue.index} / ${dialogue.total}` : '默认回复'}</span></div><p>{dialogue.content}</p></div>}
       </section>
