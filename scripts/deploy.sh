@@ -97,11 +97,12 @@ on_error() {
   trap - ERR
   set +e
   if [[ $task_transition -eq 1 && -n $task_old_dir ]]; then
-    printf 'Release failed; restoring the previous application images. Database changes are retained.\n' >&2
-    if compose_for "$task_old_dir" up -d --wait --wait-timeout 180 api web caddy; then
-      printf 'Previous application services are healthy.\n' >&2
+    printf 'Release failed; restoring the previous PostgreSQL 17 and application images. Database changes are retained.\n' >&2
+    if compose_for "$task_old_dir" up -d --wait --wait-timeout 120 db && \
+       compose_for "$task_old_dir" up -d --wait --wait-timeout 180 api web caddy; then
+      printf 'Previous database and application services are healthy.\n' >&2
     else
-      printf 'Previous application restart failed; inspect this application and its migration compatibility.\n' >&2
+      printf 'Previous stack restart failed; inspect database health and migration compatibility.\n' >&2
     fi
   elif [[ $task_transition -eq 1 ]]; then
     compose stop api >/dev/null
@@ -115,9 +116,35 @@ trap on_error ERR
 # Invalid interpolation/credentials fail before stopping the current API.
 compose config --quiet
 compose pull api web db caddy
-compose up -d --wait --wait-timeout 120 db
-task_transition=1
-compose stop api
+
+require_postgres_17() {
+  local release=$1
+  local version
+  # Override the entrypoint: --version never initializes or edits the data volume.
+  version=$(compose_for "$release" run --rm --no-deps --entrypoint postgres db --version)
+  if ! printf '%s\n' "$version" | grep -Eq '^postgres \(PostgreSQL\) 17([. ]|$)'; then
+    printf 'Only PostgreSQL 17 images are supported; major-version changes are refused.\n' >&2
+    return 1
+  fi
+}
+require_postgres_17 "$task_release_dir"
+task_backup_release=$task_release_dir
+if [[ -n $task_old_dir ]]; then
+  require_postgres_17 "$task_old_dir"
+  # Inspect the saved stack without recreating its database before the backup.
+  task_old_db_container=$(compose_for "$task_old_dir" ps --quiet db)
+  [[ $task_old_db_container =~ ^[a-f0-9]{12,64}$ ]] || { printf 'The previous database container is not running.\n' >&2; false; }
+  task_old_db_health=$(docker inspect --format '{{.State.Running}} {{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$task_old_db_container")
+  [[ $task_old_db_health == 'true healthy' ]] || { printf 'The previous database is not healthy; upgrade was not started.\n' >&2; false; }
+  task_backup_release=$task_old_dir
+  task_transition=1
+  compose_for "$task_old_dir" stop api
+else
+  # No established release exists yet, so the initial database must start first.
+  compose up -d --wait --wait-timeout 120 db
+  task_transition=1
+  compose stop api
+fi
 
 task_backup_id=$(date -u +%Y%m%dT%H%M%SZ)-$task_release_id-$$
 task_dump=$task_root/backups/$task_backup_id.dump
@@ -125,10 +152,10 @@ task_env_backup=$task_root/backups/$task_backup_id.env
 [[ ! -e $task_dump && ! -e $task_env_backup ]]
 task_dump_tmp=$(mktemp "$task_root/backups/.dump.XXXXXXXX")
 task_env_tmp=$(mktemp "$task_root/backups/.env.XXXXXXXX")
-compose exec -T db pg_dump -U wisdom -d wisdom -Fc >"$task_dump_tmp"
+compose_for "$task_backup_release" exec -T db pg_dump -U wisdom -d wisdom -Fc >"$task_dump_tmp"
 [[ -s $task_dump_tmp ]]
 # Expand the complete archive, validating compressed data as well as the TOC.
-compose exec -T db pg_restore --file=/dev/null <"$task_dump_tmp"
+compose_for "$task_backup_release" exec -T db pg_restore --file=/dev/null <"$task_dump_tmp"
 cp -- "$task_root/.env" "$task_env_tmp"
 chmod 600 "$task_dump_tmp" "$task_env_tmp"
 mv -- "$task_dump_tmp" "$task_dump"
@@ -136,6 +163,11 @@ task_dump_tmp=''
 mv -- "$task_env_tmp" "$task_env_backup"
 task_env_tmp=''
 printf 'Protected database/configuration backup saved: %s\n' "$task_backup_id"
+
+if [[ -n $task_old_dir ]]; then
+  # Only now may Compose replace the old database container/image.
+  compose up -d --wait --wait-timeout 120 db
+fi
 
 if [[ $task_rollback != --code-rollback ]]; then
   compose run --rm --no-deps api node dist/migrate.js

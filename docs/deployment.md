@@ -69,7 +69,11 @@ bash /opt/wisdom-tree/incoming/<sha>/scripts/deploy.sh \
   /opt/wisdom-tree/incoming/<sha>/.release.env
 ```
 
-部署加独占锁，先校验配置并拉取 API、前端、数据库和 Caddy 四个镜像。全部拉取成功后才启动数据库并确认其健康；拉取失败会直接结束，不停止当前 API。暂停 API 后备份数据库，完整解码验证压缩归档，再原子保存；同时另存一份权限 `600` 的 `.env`，用于恢复密钥。新镜像执行 `node dist/migrate.js`。迁移成功后，仅在数据库确认没有有效管理员时执行 `node dist/admin-cli.js` 创建初始管理员，不重置已有账户。随后启动 API、前端、Caddy，检查容器健康、公开 HTTPS 的 `/health`、首页 HTML 以及 HTTP 跳转 HTTPS。
+部署加独占锁，先校验配置并拉取 API、前端、数据库和 Caddy 四个镜像，并确认新旧数据库镜像均为 PostgreSQL 17。拉取或版本校验失败会直接结束，不停止当前 API。此部署流程仅支持 PostgreSQL 17 主版本内的镜像更换，不支持跨主版本升级或主版本降级。
+
+已有成功发布版本时，脚本先用旧版本的 Compose 配置确认旧数据库健康，标记进入版本切换，再停止旧 API。随后备份旧数据库，完整解码验证压缩归档后原子保存，并另存一份权限 `600` 的 `.env`；两项备份成功后才启动新数据库镜像并确认健康。首次部署没有旧发布版本时，先启动数据库，再完成相同的数据库与 `.env` 备份。重复部署同一 SHA 也会先备份，保留已有数据卷。
+
+备份完成并启动新数据库后，新 API 镜像执行 `node dist/migrate.js`。迁移成功后，仅在数据库确认没有有效管理员时执行 `node dist/admin-cli.js` 创建初始管理员，不重置已有账户。随后启动 API、前端、Caddy，检查容器健康、公开 HTTPS 的 `/health`、首页 HTML 以及 HTTP 跳转 HTTPS。
 
 首次 Caddy 申请证书需要域名解析正确且能够接收公网验证。部署完成才原子更新服务器 `.release.env`；此前成功版本保存为 `.previous-release.env`。每份发布包保留在 `releases/<sha>/`，重复部署同一 SHA 必须与原始发布包一致。
 
@@ -77,7 +81,7 @@ bash /opt/wisdom-tree/incoming/<sha>/scripts/deploy.sh \
 
 ## 失败、回滚与恢复
 
-部署出错时尝试恢复上一个成功版本的 API/前端/Caddy 镜像；数据库、证书和备份不删除。迁移已经提交时保留其结果，不自动降级数据库。新增迁移应兼容前一版本应用；不兼容的破坏性迁移需要先准备独立恢复方案。
+版本切换出错时尝试恢复上一个成功版本的数据库镜像以及 API、前端、Caddy 镜像；数据库内容、数据卷、证书和备份均保留。数据库镜像恢复仅在 PostgreSQL 17 主版本内进行，不支持主版本降级。迁移已经提交时保留其结果，不自动回退数据库内容或 schema。新增迁移应兼容前一版本应用；不兼容的破坏性迁移需要先准备独立恢复方案。
 
 手动恢复前一个成功应用版本：
 
@@ -85,7 +89,7 @@ bash /opt/wisdom-tree/incoming/<sha>/scripts/deploy.sh \
 bash /opt/wisdom-tree/releases/<current-sha>/scripts/rollback.sh
 ```
 
-回滚仍会先做受保护备份，但跳过旧镜像迁移；当前与前一版本会互换，便于再次切换。应用第一次部署失败时没有旧版本可恢复，数据库与备份会保留供排查。
+手动回滚同样先确认新旧数据库镜像为 PostgreSQL 17，停止当前 API 并备份当前数据库与 `.env`，完成验证后才更换数据库和应用镜像；它保留数据卷并跳过旧镜像迁移，不回退数据库内容。当前与前一版本会互换，便于再次切换。应用第一次部署失败时没有旧版本可恢复，数据库与备份会保留供排查。
 
 数据库备份位于 `/opt/wisdom-tree/backups/<UTC timestamp>-<sha>-<pid>.dump`，对应的 `.env` 快照是同名 `.env` 文件。备份目录权限 `700`，归档及密钥快照权限 `600`。应将这两种文件一起复制到受保护的异机存储；仅数据库备份缺少加密主密钥时无法解密用户密钥和 OAuth Secret。脚本不会删除旧备份或执行全机 `docker system prune`。
 

@@ -8,5 +8,8 @@ task_previous=$(sed -n 's/^RELEASE_ID=//p' "$task_root/.previous-release.env")
 [[ $task_previous =~ ^[a-f0-9]{40}$ ]] || { printf 'Invalid previous release metadata.\n' >&2; exit 1; }
 task_previous_dir=$task_root/releases/$task_previous
 cmp -s "$task_root/.previous-release.env" "$task_previous_dir/.release.env" || { printf 'Previous release bundle is missing or differs from its saved metadata.\n' >&2; exit 1; }
-printf 'Restoring previous application images; the database will not be downgraded.\n'
-exec bash "$task_previous_dir/scripts/deploy.sh" "$task_previous_dir/.release.env" --code-rollback
+printf 'Restoring previous PostgreSQL 17 and application images. Database contents and schema are retained.\n'
+task_script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+# Use this release's current deployment safeguards with the previous metadata.
+# Previous immutable bundles keep their original scripts and are never rewritten.
+exec bash "$task_script_dir/deploy.sh" "$task_previous_dir/.release.env" --code-rollback
