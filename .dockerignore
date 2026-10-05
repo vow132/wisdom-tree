@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+.local
+**/.local
+.env
+.env.*
+!.env.example
+backups
+test-results
+*.zip
+*.log
+.git

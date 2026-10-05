@@ -1,0 +1,49 @@
+
+> wisdom-tree@1.0.0 test
+> tsx --test tests/*.test.ts
+
+▶ the rendered wisdom tree accepts deliberate feeding and plays pour before growth
+  ✔ actual seedling alpha, rather than the grass/background, determines valid drops (79.6589ms)
+  ✔ tree clicks speak and food clicks do not arm tree-click feeding (11.903ms)
+  ✔ accepted feeding pours all 31 original frames before growth and locks repeat actions (23.5801ms)
+  ✔ a cancelled touch drag returns the bag and a later touch drop still feeds (9.0457ms)
+  ✔ mobile pointer coordinates scale to the original tree instead of the full canvas (8.5444ms)
+  ✔ no inventory cannot be dragged and explicit keyboard feeding works with inventory (6.3472ms)
+  ✔ reduced motion holds a pour pose but still waits before changing tree stage (8.2044ms)
+  ✔ a hidden tab stops drawing and resumes the unfinished pour rather than skipping growth (16.0452ms)
+  ✔ an idle scene keeps static assets cached and performs no polling requests (12.5602ms)
+✔ the rendered wisdom tree accepts deliberate feeding and plays pour before growth (236.0812ms)
+▶ complete application and SDK integration
+  ✔ fresh migration, anonymous state, registration and session (140.5668ms)
+  ✔ permissions and cross-site request protection (2.4626ms)
+  ✔ one seed, planting, server persistence and action idempotency (68.4557ms)
+  ✔ partial daily claim, full inventory and remaining daily allowance (53.3803ms)
+  ✔ owner can recover encrypted sk_ keys; other accounts and admin views never receive secrets (15.3734ms)
+  ✔ legacy digest-only keys authenticate, report unrecoverable and revoked ciphertext is cleared (13.7681ms)
+  ✔ official SDKs parse Chat, Responses and Anthropic JSON and SSE (463.2478ms)
+  ✔ invalid requests are free and truncation is correctly reported (14.1765ms)
+  ✔ numbered reply CRUD, per-model SDK rotation and idempotent snapshots (143.7448ms)
+  ✔ free tree dialogue, feeding and API calls share the wisdom-tree reply sequence (146.7744ms)
+  ✔ idempotent replay preserves reply and price after model changes (50.3333ms)
+  ✔ simultaneous calls never create a negative balance (41.945ms)
+  ✔ accepted stream disconnect remains charged exactly once, replay succeeds (6324.2247ms)
+  ✔ OAuth login, explicit binding, conflicting identity and invalid state (32.8551ms)
+  ✔ user CRUD, password reset, key revocation and last-admin guard (214.9442ms)
+  ✔ settings apply only to future actions and persistence survives app rebuild (24.0198ms)
+✔ complete application and SDK integration (9990.896ms)
+✔ encryption configuration persists locally and rejects missing production or corrupt keys (253.4914ms)
+▶ the real theme selector follows user choices and browser events without polling
+  ✔ light, dark and system choices apply immediately and persist (34.6759ms)
+  ✔ system change events update both ways and explicit choices remain selected (4.7788ms)
+  ✔ remount restores the saved choice and current system preference (8.95ms)
+  ✔ cross-tab storage events sync choices and ignore unrelated settings (4.2287ms)
+  ✔ event-driven updates schedule no timers or fetches, and unmount removes listeners (0.6411ms)
+✔ the real theme selector follows user choices and browser events without polling (115.8415ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11020.1299

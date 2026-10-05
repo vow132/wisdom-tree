@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "model": "wisdom-tree-ui",
+  "input": " 你好 ",
+  "reply": "你好",
+  "matched": true,
+  "throughViteProxy": true
+}

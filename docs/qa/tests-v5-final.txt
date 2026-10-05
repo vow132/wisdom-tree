@@ -1,0 +1,80 @@
+
+> wisdom-tree@1.0.0 test
+> tsx --test tests/*.test.ts
+
+▶ conditional model replies, editable IDs and reason-free admin integration
+  ✔ fresh wisdom import is complete and the legacy edit field agrees with the first reply (31.3211ms)
+  ✔ rule CRUD validates input, numbering, permissions and stream duration without reasons (169.7777ms)
+  ✔ official SDKs receive conditional text for all four protocols in JSON and SSE (82.4454ms)
+  ✔ matching uses only the last user text, joins text blocks and preserves letter case (110.9092ms)
+  ✔ matched requests do not advance ordered replies; disabled rules and models stay independent (111.9929ms)
+  ✔ rule edits and deletion never change an accepted idempotent reply or repeat its charge (62.8664ms)
+  ✔ renaming a used model preserves replies, rules, cursor and immutable historical response snapshots (74.8854ms)
+  ✔ wisdom-tree may be renamed while garden dialogue, feeding and API keep sharing its pool (89.2231ms)
+  ✔ all user, reply and settings mutations accept omitted reasons; audits and ledgers keep automatic explanations (110.4958ms)
+✔ conditional model replies, editable IDs and reason-free admin integration (3858.3553ms)
+▶ the real login dialog displays only available OAuth providers without polling
+  ✔ neither provider hides third-party controls and the separator (48.8157ms)
+  ✔ GitHub alone has one valid login link (12.1159ms)
+  ✔ Linux DO alone has one valid login link (7.6262ms)
+  ✔ both enabled providers are displayed (4.243ms)
+  ✔ an authoritative availability change removes a disabled option in place (6.4308ms)
+  ✔ switching to registration still hides unavailable providers (17.0931ms)
+  ✔ provider rendering and mode changes create no requests or polling timers (0.143ms)
+✔ the real login dialog displays only available OAuth providers without polling (286.3737ms)
+▶ the rendered wisdom tree accepts deliberate feeding and plays pour before growth
+  ✔ actual seedling alpha, rather than the grass/background, determines valid drops (97.9834ms)
+  ✔ tree clicks speak and food clicks do not arm tree-click feeding (13.979ms)
+  ✔ accepted feeding pours all 31 original frames before growth and locks repeat actions (28.697ms)
+  ✔ a cancelled touch drag returns the bag and a later touch drop still feeds (22.6377ms)
+  ✔ mobile pointer coordinates scale to the original tree instead of the full canvas (11.8127ms)
+  ✔ no inventory cannot be dragged and explicit keyboard feeding works with inventory (8.3481ms)
+  ✔ reduced motion holds a pour pose but still waits before changing tree stage (10.1562ms)
+  ✔ a hidden tab stops drawing and resumes the unfinished pour rather than skipping growth (18.3341ms)
+  ✔ an idle scene keeps static assets cached and performs no polling requests (22.942ms)
+✔ the rendered wisdom tree accepts deliberate feeding and plays pour before growth (315.3109ms)
+▶ complete application and SDK integration
+  ✔ fresh migration, anonymous state, registration and session (165.3774ms)
+  ✔ permissions and cross-site request protection (2.8136ms)
+  ✔ one seed, planting, server persistence and action idempotency (79.0001ms)
+  ✔ partial daily claim, full inventory and remaining daily allowance (70.077ms)
+  ✔ owner can recover encrypted sk_ keys; other accounts and admin views never receive secrets (18.3644ms)
+  ✔ legacy digest-only keys authenticate, report unrecoverable and revoked ciphertext is cleared (17.4643ms)
+  ✔ official SDKs parse Chat, Responses and Anthropic JSON and SSE (486.8115ms)
+  ✔ invalid requests are free and truncation is correctly reported (17.9601ms)
+  ✔ numbered reply CRUD, per-model SDK rotation and idempotent snapshots (171.7637ms)
+  ✔ free tree dialogue, feeding and API calls share the wisdom-tree reply sequence (171.7127ms)
+  ✔ idempotent replay preserves reply and price after model changes (56.0674ms)
+  ✔ simultaneous calls never create a negative balance (46.2038ms)
+  ✔ accepted stream disconnect remains charged exactly once, replay succeeds (6348.6692ms)
+  ✔ OAuth login, explicit binding, conflicting identity and invalid state (44.4873ms)
+  ✔ user CRUD, password reset, key revocation and last-admin guard (244.1388ms)
+  ✔ settings apply only to future actions and persistence survives app rebuild (27.4351ms)
+✔ complete application and SDK integration (10755.7197ms)
+✔ encryption configuration persists locally and rejects missing production or corrupt keys (267.4398ms)
+▶ administrator OAuth configuration, encryption and dynamic login availability
+  ✔ empty defaults are hidden and existing environment credentials remain compatible (16.612ms)
+  ✔ admin permission, Origin, input types and missing credentials are enforced atomically (28.541ms)
+  ✔ new credentials are encrypted, audited without secrets and available without restart (19.1008ms)
+  ✔ GitHub login and Linux Do binding use the newly saved app credentials (48.457ms)
+  ✔ turning off hides public availability, refuses new flows and preserves bindings and sessions (22.4697ms)
+  ✔ blank secret preserves the old value, replacements revoke pending flows and clear is explicit (39.0301ms)
+  ✔ configuration changes during a provider fetch prevent identity and session acceptance (15.7935ms)
+  ✔ database override persists on rebuild and cannot be re-enabled by environment defaults (26.5651ms)
+✔ administrator OAuth configuration, encryption and dynamic login availability (3255.7219ms)
+▶ the real theme selector follows user choices and browser events without polling
+  ✔ light, dark and system choices apply immediately and persist (110.012ms)
+  ✔ system change events update both ways and explicit choices remain selected (28.415ms)
+  ✔ remount restores the saved choice and current system preference (38.1084ms)
+  ✔ cross-tab storage events sync choices and ignore unrelated settings (12.9222ms)
+  ✔ icon menu supports keyboard focus, Escape and outside dismissal (22.8555ms)
+  ✔ event-driven updates schedule no timers or fetches, and unmount removes listeners (0.9098ms)
+✔ the real theme selector follows user choices and browser events without polling (326.3424ms)
+ℹ tests 62
+ℹ suites 0
+ℹ pass 62
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11904.6382

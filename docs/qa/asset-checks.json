@@ -1,0 +1,18 @@
+{
+  "result": "passed",
+  "sourceCommit": "8ba94e95cfe7d0de5682f8258d3b932dbdac885c",
+  "scene": [
+    800,
+    600
+  ],
+  "images": 75,
+  "animations": 5,
+  "growthStages": 51,
+  "cloudRanges": 6,
+  "animationImageReferences": 121,
+  "sourceRecords": 107,
+  "sourceHashesChecked": 107,
+  "convertedImagesCompared": 75,
+  "fonts": 16,
+  "sounds": 5
+}

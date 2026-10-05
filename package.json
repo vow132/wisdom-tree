@@ -1,0 +1,30 @@
+{
+  "name": "wisdom-tree",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c green,cyan \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "dev:preview": "node scripts/preview.mjs",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "typecheck": "npm run typecheck -w backend && npm run typecheck -w frontend",
+    "test": "tsx --test tests/*.test.ts",
+    "migrate": "npm run migrate -w backend",
+    "admin:create": "npm run admin:create -w backend"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
+    "@electric-sql/pglite": "^0.3.14",
+    "@napi-rs/canvas": "^1.0.10",
+    "@types/node": "^24.0.0",
+    "concurrently": "^9.2.0",
+    "jsdom": "^29.1.1",
+    "openai": "^6.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

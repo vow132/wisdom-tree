@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-05",
+  "environment": "isolated PGlite database with Fastify 3001 and Vite 5174",
+  "productionCredentialsOrSettingsChangedInBrowser": false,
+  "adminForm": {
+    "githubAndLinuxdoIndependentSwitches": true,
+    "clientIdAndSecretSaveViaBrowser": true,
+    "saveAppliesImmediately": true,
+    "secretInputEmptyAfterSave": true,
+    "callbackUrlsDisplayed": true,
+    "secretNeverReturnedByAdminOrAudit": "verified in OAuth integration tests"
+  },
+  "login": {
+    "bothDisabled": "no provider links, no provider container or divider",
+    "bothEnabled": "both provider links displayed",
+    "githubDisabledLinuxdoEnabled": "only Linux Do displayed",
+    "allCombinationsAndRegistration": "verified using real Auth component tests"
+  },
+  "viewports": {
+    "desktop": { "width": 1280, "documentWidth": 1265, "documentScrollWidth": 1265 },
+    "mobile": { "width": 390, "height": 844, "documentWidth": 375, "documentScrollWidth": 375 }
+  },
+  "horizontalOverflow": false,
+  "screenshots": ["oauth-admin-v5-desktop.jpg", "oauth-admin-v5-mobile.jpg", "login-disabled-v5.jpg", "login-enabled-v5-mobile.jpg", "login-linuxdo-only-v5-mobile.jpg"],
+  "realThirdPartyPlatformAuthorizationTested": false,
+  "temporaryTabClosed": true,
+  "viewportOverrideReset": true
+}

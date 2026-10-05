@@ -1,0 +1,16 @@
+node_modules/
+**/dist/
+.env
+.env.*
+!.env.example
+.local/
+backups/
+*.log
+playwright-report/
+test-results/
+*.zip
+__pycache__/
+*.pyc
+# Keep key-display QA screenshots in the local delivery only.
+docs/qa/api-keys-*.jpg
+docs/qa/api-console.jpg

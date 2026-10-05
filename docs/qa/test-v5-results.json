@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-05",
+  "testedSource": "wisdom-tree source project",
+  "delivery": "D:/智慧树",
+  "deliveryMatchesTestedSource": "all source files verified by SHA-256 during synchronization",
+  "productionBuildInDeliveryFolder": { "backend": "passed", "frontend": "passed", "frontendModules": 97 },
+  "tests": { "total": 62, "passed": 62, "failed": 0, "cancelled": 0, "skipped": 0, "durationMs": 11904.6382 },
+  "log": "tests-v5-final.txt",
+  "oauthSettingsIntegrationTests": 9,
+  "realAuthComponentTests": 8,
+  "isolation": "Independent test databases, local mock OAuth providers and a separate browser QA preview.",
+  "realThirdPartyPlatformAuthorizationTested": false,
+  "nativePostgresMultiConnectionRaceValidated": false,
+  "realPreviewUpgrade": {
+    "usersPreserved": 1,
+    "modelsPreserved": 4,
+    "existingReplyPoolsPreserved": true,
+    "treeAndBalancesPreserved": true,
+    "keyMetadataPreserved": true,
+    "ledgerAndUsagePreserved": true,
+    "wisdomReplyCount": 80,
+    "oauthAvailabilityPreserved": true,
+    "oauthAdminEndpointVerified": true,
+    "realThirdPartyCredentialsChanged": false,
+    "backupBeforeMigration": ".local/backups/pre-v5-20261005",
+    "apiAndWebReadyAfterMigration": true
+  }
+}

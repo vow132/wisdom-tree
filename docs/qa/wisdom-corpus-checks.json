@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-10-05",
+  "command": "python scripts/verify-wisdom-corpus.py --archive C:\\Users\\13370\\Documents\\Codex\\2026-10-05\\new-chat\\work\\pvz-original-source\\github.zip",
+  "result": "pass",
+  "entries": 80,
+  "distinctSourceKeys": 80,
+  "originalArchiveVerified": true,
+  "archiveSha256": "7ddc13270a7dd7cad789d98d8d89ca7906069238c85d77a5413c23d00b64501d",
+  "originalStringsSha256": "c6c6f7984d747600621f7bbd077ed27fb192323c48ca5c850788454758a1477e",
+  "corpusSha256": "e2d16631daa88f2e4ee455dc084dbc8572d7683a9b3c6c816d34985e5a6c1d23",
+  "categories": {
+    "feeding": 48,
+    "feeding-repeat": 1,
+    "idle": 10,
+    "idle-young": 5,
+    "idle-grown": 5,
+    "idle-tall": 5,
+    "repeat-intro": 1,
+    "first-feed-prompt": 1,
+    "milestone": 3,
+    "feeding-final": 1
+  },
+  "originalExactTextBundled": false,
+  "textStatus": "Chinese gameplay summaries and original chatter; no verbatim game transcript",
+  "runtimeDatabaseImportVerified": true,
+  "note": "Source-key and hash audit plus fresh database migration equals all 80 corpus entries; repeated migration does not duplicate. Integration playback and shared cursor verified."
+}

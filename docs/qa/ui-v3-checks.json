@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-05",
+  "environment": "Isolated local PGlite fixture, Vite proxy, Codex in-app browser",
+  "feed": {"heightBefore": 1, "heightAfter": 2, "fertilizerBefore": 10, "fertilizerAfter": 9, "coinsBefore": 0, "coinsAfter": 10, "phaseObservedAfterAccept": "pouring", "requiresRefresh": false},
+  "dialogue": {"twoSuccessiveMessagesDiffer": true, "requests": 2, "unchangedHeightFertilizerCoins": true, "inputMethodsObserved": ["keyboard scene talk", "visible next message button"]},
+  "dragAndAnimation": {"testFile": "tests/game-scene.test.ts", "realReactAndOriginalPngAlpha": true, "nativeBrowserPointerDragAvailable": false, "coverage": ["tree-only valid drop", "background rejected", "touch cancel", "390px scaled hit", "second pointer rejected", "31 frame pour before 8 fps growth", "busy lock", "hidden pause", "reduced motion", "no idle polling"]},
+  "adminReplies": {"initialCorpusCount": 80, "isolatedFixtureExtraCount": 1, "createSearchEditObservedInBrowser": true, "deleteAndAuthorizationCoveredByIntegration": true},
+  "key": {"plaintextVisibleAfterReload": true, "prefixSkUnderscore": true, "clipboardMatchesFullValue": true, "secretIncludedInThisReport": false},
+  "theme": {"lightDarkSystemAvailable": true, "darkPersistsAfterReload": true, "systemSelectionObserved": true, "systemChangeAndStorageEvents": "tests/theme.test.ts", "polling": false},
+  "layout": {"viewports": ["1280x960", "390x844", "320x750"], "horizontalPageOverflow": false, "longTextFullTranscript": true, "detectorFindings": 0, "consoleErrors": []},
+  "runtimeImport": {"freshDatabaseEquals80JsonEntries": true, "repeatedMigrationDoesNotDuplicate": true},
+  "limitations": ["Strict PC/GOTY pixel equivalence remains unverified; see design-qa.md", "Native production PostgreSQL, Docker, HTTPS and real OAuth credentials require target deployment validation", "Corpus is independent Chinese gameplay summaries and original chatter, not a verbatim official transcript"]
+}

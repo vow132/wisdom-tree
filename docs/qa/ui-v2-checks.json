@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-05",
+  "continuousGrowth": [
+    1,
+    2,
+    3
+  ],
+  "requiresReload": false,
+  "keyPrefix": "sk_",
+  "clipboardMatches": true,
+  "plaintextSurvivesReload": true,
+  "viewport": 390,
+  "noHorizontalOverflow": true,
+  "minPrimaryButtonHeight": 44,
+  "testData": "isolated disposable QA account, not the delivered user database"
+}

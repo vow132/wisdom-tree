@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-05",
+  "environment": "isolated PGlite database, Fastify on port 3001, Vite on port 5174",
+  "productionDataUsedForBrowserMutations": false,
+  "wisdomImport": {
+    "realDatabaseRepliesBeforeUpgrade": 80,
+    "editDialogShowsCountAndManageLink": true,
+    "legacyFallbackCorrectedInFreshDatabase": true,
+    "isolatedRenamePreserves80Replies": true
+  },
+  "inputRules": {
+    "createdViaBrowser": { "position": 1, "input": "你好", "text": "你好" },
+    "listUpdatesImmediately": true,
+    "editFormLoadsRule": true,
+    "liveChatThroughViteProxy": "input-rule-v4-live.json",
+    "ruleWrittenToRealPreviewDatabase": false
+  },
+  "admin": {
+    "existingModelIdEditable": true,
+    "operationReasonInputsRemoved": true,
+    "auditRetained": true
+  },
+  "theme": {
+    "lightIcon": "plum outlined sun",
+    "darkIcon": "white crescent on dark circle",
+    "menuChoices": ["light", "dark", "system"],
+    "themeNetworkRequests": 0,
+    "themeTimers": 0,
+    "keyboardAndOutsideDismissCoveredByComponentTests": true
+  },
+  "viewports": {
+    "desktop": { "width": 1280, "height": 960, "passed": true },
+    "mobile": { "width": 390, "height": 844, "documentWidth": 375, "documentScrollWidth": 375, "horizontalOverflow": false }
+  },
+  "screenshots": ["model-edit-v4.png", "model-rules-v4-desktop.jpg", "model-rules-v4-mobile.jpg"],
+  "temporaryApiKeyRevoked": true,
+  "temporaryBrowserTabClosed": true,
+  "viewportOverrideReset": true
+}

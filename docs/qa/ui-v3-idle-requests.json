@@ -1,0 +1,7 @@
+{
+  "note": "Reset after final garden render; no subsequent UI action. A single report read after more than a minute found no API requests.",
+  "minimumIdleMs": 60000,
+  "observedAt": 1791139209656,
+  "count": 0,
+  "apiRequests": []
+}
